@@ -78,12 +78,34 @@ friendly, but competitor data costs credits). **Recurring finding:** audience-qu
 terms (`X for parents/seniors/family`) tend to be popularity-floor (≈5) — real demand sits on the
 generic head; the ratings proxy overstates the niche terms.
 
-### Discover new markets (optional) — `af_discover.mjs`
+### Discover new markets (optional) — `af_market.mjs` (demand-first) + `af_discover.mjs` (app-first)
 
 `scout.exs`/`af_auto.mjs` answer *"is there demand for this idea?"* — you still have to name
-the idea. `af_discover.mjs` inverts that: give it a **seed term or a competitor app** and it
-lets the data nominate markets. It drives the same logged-in AppFigures session over CDP
-(credit-free, no tracking, no cleanup) to:
+the idea. Two generators nominate markets *for* you, both credit-free over the same CDP session.
+
+**Start with `af_market.mjs` (demand-first).** Give it only a **domain word** (`pet`, `sleep`,
+`budget`). It begins at the demand surface, not at incumbents:
+
+1. **Apple search-hints / autocomplete** (`MZSearchHints`, public, no login) → the terms people
+   *actually type*, ordered by Apple's own popularity — recursed + optionally alphabet-expanded
+   into a broad candidate-term field,
+2. each term → **`/api/aso-ranks?term=<ANY>`** → real **popularity + competitiveness + depth for
+   arbitrary keywords, no app and no tracking** (the lookup the public API can't do),
+3. ranked by **demand × openness** with an `open` flag on high-demand/weak-defense terms.
+
+It surfaces high-demand gaps that no incumbent serves (which app-first discovery structurally
+misses), and disqualifies dead domains in one pass — `bill reminder` → popularity 5, done.
+Brand/game noise in the raw list is expected; the LLM-cluster step strips it.
+
+```bash
+# same prereq as af_auto.mjs: Chromium on :9222, logged into appfigures.com (Monitor+/trial)
+node af_market.mjs --seed "pet,dog,cat" --country us --depth 2 --max-terms 150 \
+  --out markets.csv --llm-prompt market.md
+node af_market.mjs --seed "budget" --exclude "loan,casino"    # drop covered/junk terms by substring
+```
+
+**Then `af_discover.mjs` (app-first)** once a domain looks alive — give it a **seed term or a
+competitor app** to profile the actual incumbents you'll review-mine. It drives the same session to:
 
 1. `unified-apps/search` → the real incumbent apps for the seed, **with download + revenue
    estimates** (market size + who's winning),
@@ -186,7 +208,10 @@ elixir trends.exs --terms "pet vaccine tracker,cat health record" --time "today 
 
 ```
 NOMINATE CANDIDATE MARKETS (discover mode, optional — needs AppFigures session)
-  af_discover.mjs    → seed term/app → ranked real-demand terms   [session]
+  af_market.mjs      → domain word → Apple autocomplete → aso-ranks demand   [session]
+                       (demand-first: picks/kills the DOMAIN, finds unserved gaps)
+  af_discover.mjs    → seed term/app → incumbents + terms they compete on    [session]
+                       (app-first: profiles the incumbents to review-mine)
     ↓ LLM clusters candidates → markets → pick 2–3 to mine
 DISCOVER THE WEDGE
   review_miner.exs   → incumbents' 1–3★ complaints (iOS RSS)   [core]

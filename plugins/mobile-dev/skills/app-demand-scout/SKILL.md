@@ -65,7 +65,8 @@ dropping it**.
 | script | job | key flags |
 |---|---|---|
 | `af_auto.mjs` | **real Apple Search Ads popularity** + competitiveness per seed, via CDP over the logged-in AppFigures dashboard (add competitor → track → poll → read → cleanup). Replaces `scout.exs`'s fake proxy. | `--store-id N` or `--product-id N` · `--country us` · `--keywords "a,b"` or `--seeds f` · `--out r.csv` · `--keep` |
-| `af_discover.mjs` | **DISCOVER mode candidate generator** — inverts the skill: from a seed term/app it pulls the real incumbents (`unified-apps/search`, with download+revenue estimates), reads **every keyword they genuinely rank for** (`products-snapshot/keywords`, filtered to organic rank ≤ N so it's their real market, not brand noise), and ranks the pool by demand × openness. The data nominates markets. Credit-free, no tracking, no cleanup. | `--seed-keywords "a,b"` or `--seed-apps id,id` or `--product-ids pid,pid` · `--country us` · `--top-apps 6 --pages 4 --max-position 20` · `--enrich 25` · `--exclude-apps id,id` / `--exclude-file f` (ledger) · `--out c.csv --llm-prompt disc.md` |
+| `af_discover.mjs` | **DISCOVER mode candidate generator (app-first)** — from a seed term/app it pulls the real incumbents (`unified-apps/search`, with download+revenue estimates), reads **every keyword they genuinely rank for** (`products-snapshot/keywords`, filtered to organic rank ≤ N so it's their real market, not brand noise), and ranks the pool by demand × openness. Sees only terms incumbents already rank for — so it can't surface a gap no app serves. Credit-free, no tracking, no cleanup. | `--seed-keywords "a,b"` or `--seed-apps id,id` or `--product-ids pid,pid` · `--country us` · `--top-apps 6 --pages 4 --max-position 20` · `--enrich 25` · `--exclude-apps id,id` / `--exclude-file f` (ledger) · `--out c.csv --llm-prompt disc.md` |
+| `af_market.mjs` | **DISCOVER mode candidate generator (demand-first — start here)** — begins at the *demand surface*: a domain seed → **Apple search-hints/autocomplete** (what people actually type, ordered by Apple's popularity; public, no login) → recursed/alphabet-expanded into a candidate-term field → each term validated with `/api/aso-ranks?term=<ANY>` for **real popularity + competitiveness + depth on arbitrary keywords, no app, no tracking** (the lookup the public API can't do) → ranked by demand × openness with an `open` flag. Surfaces high-demand gaps `af_discover` structurally misses, and kills dead-search niches in one call (`bill reminder` → pop 5). Noise (brands/games) is expected — the LLM-cluster step strips it. | `--seed "pet,dog,cat"` or `--seed-file f` · `--country us` · `--depth 2` · `--alpha` (breadth; auto-on at depth≥2) · `--max-terms 150 --hints-per 10 --min-pop 0` · `--exclude sub,sub` / `--exclude-file f` (ledger, by substring) · `--out m.csv --llm-prompt market.md` |
 
 Needs Chromium on `--remote-debugging-port=9222` logged into a Monitor+/trial account, and
 `npm i playwright-core` in `scripts/`. See `SAAS_OPTIONS.md` for the full contract + the
@@ -98,9 +99,17 @@ Ask which the user wants (or infer from `$ARGUMENTS`):
 - **Discover** — start from a *domain or audience* (e.g. "pet care", "caregivers"), find a
   market. Input is a rough area; you find the gap. **You do not need keywords up front** —
   they come *out of* the review-mining in Phase 2. If an AppFigures session is available,
-  front-load this with `af_discover.mjs` (a seed term/app → a ranked field of real demand
-  terms the incumbents rank for, with download/revenue estimates) so the *data* nominates
-  candidate markets before you commit to one — then cluster + review-mine the survivors.
+  front-load this with the two credit-free discovery generators so the *data* nominates
+  candidate markets before you commit to one — then cluster + review-mine the survivors:
+    - **`af_market.mjs` first (demand-first).** Give it just the domain word(s). It reads Apple's
+      own autocomplete and validates each term's real demand — surfacing high-demand gaps *and*
+      instantly disqualifying dead-search domains (pop-5 floor) or walled ones. Fastest way to
+      learn whether a domain is even worth pursuing.
+    - **`af_discover.mjs` next (app-first),** once a domain looks alive: seed the promising terms/
+      apps to pull the actual incumbents + their download/revenue estimates and the terms they
+      compete on. Use it to name the incumbents you'll review-mine.
+    Run `af_market` to pick the domain, `af_discover` to profile its incumbents. Skip both only if
+    no session is available (fall back to hand/LLM-seeded `scout.exs`).
 - **Evaluate** — start from an *app the user already has* (a project directory). Read its
   code/docs to understand what it does and who it's for, then run the same pipeline against
   its category to grade it BUILD / MAYBE / KILL.
@@ -135,21 +144,25 @@ review-mining below. These are demand *terms*, not the wedge — the wedge still
 complaints. Seed cleanly: ambiguous seeds contaminate (`pill tracker` pulls in gaming
 "trackers"). No session? Skip to review-mining with a domain term as before.
 
-**Discovery ledger — don't re-discover the same market.** `af_discover` is stateless; without
-memory it will happily re-surface a market you already worked (BP logging, med adherence, …)
-on the next run. Maintain a persistent ledger at `~/app-demand-runs/discovered.md` and treat it
-as a hard gate:
+**Discovery ledger — don't re-discover the same market.** `af_market`/`af_discover` are stateless;
+without memory they will happily re-surface a market you already worked (BP logging, med adherence,
+baby sleep, …) on the next run. Maintain a persistent ledger at `~/app-demand-runs/discovered.md`
+and treat it as a hard gate:
 1. **Before** a discovery run, read it. It lists each covered market: a name, the seed used, the
-   verdict, and the incumbent **product_ids** that were mined.
-2. Pass those product_ids to `af_discover --exclude-apps 213422935,214104401,...` (or
-   `--exclude-file ledger-ids.txt`) so the already-mined incumbents are dropped *before*
-   keyword-fetching — the fastest way a covered market re-appears is the same incumbents.
+   verdict, and the incumbent **product_ids** / store ids that were mined.
+2. Feed the ledger back into whichever generator you run:
+   - `af_discover --exclude-apps 213422935,214104401,...` (or `--exclude-file ledger-ids.txt`)
+     drops the already-mined incumbents *before* keyword-fetching — the fastest way a covered
+     market re-appears is the same incumbents.
+   - `af_market --exclude "blood pressure,baby sleep,bill reminder"` (or `--exclude-file`) drops
+     candidate *terms* by substring — because `af_market` is term-based, not app-based, exclude it
+     by the covered market's head words.
 3. **When clustering the output**, additionally drop any candidate cluster that matches a
-   ledger market by *meaning*, not just by app id (a brand-new BP app the exclude list didn't
-   catch still means "BP logging — already covered"). Say so in the run notes.
+   ledger market by *meaning*, not just by id/substring (a brand-new BP app the exclude list
+   didn't catch still means "BP logging — already covered"). Say so in the run notes.
 4. **After** you settle the verdict, append the new market(s) to the ledger — name, seed,
-   verdict, and the `product_id name` lines the run prints under "apps mined". Create the file
-   if missing.
+   verdict, and the incumbent id lines the run prints (`af_discover`'s "apps mined" block, or
+   `af_market`'s top-app names). Create the file if missing.
 
 This is what turns the skill from "validate one idea" into a *widening* search that never spends
 a run re-finding what you already know.
