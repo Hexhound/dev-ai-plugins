@@ -216,6 +216,35 @@ freeze window:
    backup is frozen mid-run, arming first keeps the daily chain alive (freeze costs only *this*
    run). A startup `sync()` in `main()` is the backstop.
 2. **The work must fit ~20 s** — which is why the KDF is cached out of the per-run path (§6).
+3. **Self-heal in a `finally` — a run that throws *before* the settings-driven re-arm must not
+   kill the chain.** "Arm first" (rule 1) still runs *after* settings load + DB open; if either
+   throws, the callback re-arms nothing and the daily chain is dead until the app is reopened.
+   Track a `rearmed` flag, flip it true right after `sync()`, and in a `finally` arm a fallback
+   retry (next local midnight) whenever `rearmed` is false. The retry fire re-reads settings and
+   re-syncs to the real schedule (or cancels if backups were turned off):
+
+   ```dart
+   @pragma('vm:entry-point')
+   Future<void> backupAlarmCallback(int id) async {
+     WidgetsFlutterBinding.ensureInitialized();
+     var rearmed = false;
+     try {
+       initSqliteFfi();
+       final db = await AppDatabase.open(singleInstance: false);
+       try {
+         final repos = AppRepositories(db);
+         final settings = await repos.settings.load();
+         await BackupScheduler.sync(settings, now: DateTime.now());   // re-arm NEXT run first
+         rearmed = true;
+         await _performScheduledBackup(repos, settings);
+       } finally { await db.close(); }
+     } catch (e, st) {
+       debugPrint('backupAlarmCallback failed: $e\n$st');
+     } finally {
+       if (!rearmed) await BackupScheduler.armFallbackRetry(DateTime.now());  // next midnight
+     }
+   }
+   ```
 
 The callback opens its **own** DB connection with `singleInstance: false` (see the sqflite
 isolate rule in `flutter-sqlite-ffi-fts5`), runs the checksum-skip + seal, and only arms when
@@ -230,6 +259,9 @@ isolate rule in `flutter-sqlite-ffi-fts5`), runs the checksum-skip + seal, and o
 - **Header carries no secrets** — it must be readable before you have the key.
 - **Cache the derived key** for headless runs; caching only the password re-runs Argon2id and
   blows the freeze window.
+- **Re-arm in a `finally` (`rearmed` flag → fallback retry)** — "arm first" runs after settings
+  load + DB open; if either throws, the chain silently dies. The finally fallback (next midnight)
+  self-heals (§11).
 - **Escrow the attachment data-key** in the (encrypted) manifest, or restored files are dead.
 - **Close the DB before overwriting it**, write it **last** in restore.
 - **Refuse newer `formatVersion`** with an "update the app" message; migrate older ones.

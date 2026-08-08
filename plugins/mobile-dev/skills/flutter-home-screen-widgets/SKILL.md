@@ -95,14 +95,25 @@ when its visible content changed**, keyed by a signature digest (fold the theme 
 palette/mode switch still repaints):
 
 ```dart
+// The manifest `namespace` (fixed across flavors), NOT the applicationId.
+static const _widgetPackage = 'com.example.app';
+
 Future<void> _updateIfChanged(String provider, String sigKey, String sig) async {
   if (await HomeWidget.getWidgetData<String>(sigKey) == sig) return;   // nothing changed
   await HomeWidget.saveWidgetData<String>(sigKey, sig);
-  await HomeWidget.updateWidget(name: provider);
+  await HomeWidget.updateWidget(qualifiedAndroidName: '$_widgetPackage.$provider');
 }
 // e.g. only the list provider redraws when the agenda changes, not the month grid:
 await _updateIfChanged('ListWidgetProvider', 'sig_list', '$agendaJson|${data.headerDate}|$themeSig');
 ```
+
+**Use `qualifiedAndroidName`, not `name:`/`androidName:`.** `home_widget` resolves a bare
+`androidName` as `<applicationId>.<name>` — but a debug/staging flavor with an
+`applicationIdSuffix` (e.g. `.dev`) suffixes the applicationId while the provider classes keep
+the base `namespace`. The unqualified lookup then throws `ClassNotFound` and the update is
+silently dropped, so placed widgets never proactively repaint on that flavor (release is
+unaffected — masking it in review). Passing the fully-qualified class name sidesteps the
+suffix entirely and works on every flavor.
 
 The data is always *saved* first, so a widget that redraws for another reason (placement, resize,
 a day tap) still reads the latest content; this only suppresses the *proactive* re-inflate.
@@ -130,21 +141,46 @@ matches current data.
 
 Top-level, `@pragma('vm:entry-point')`, opens its **own** DB (`singleInstance: false` — it can
 fire while the app is alive, so closing it must not slam the foreground's shared connection),
-rebuilds, arms the next alarm, and closes:
+rebuilds, and **always re-arms the next alarm in a `finally`** so one bad run can't kill the
+chain:
 
 ```dart
+/// The instant to arm next: the wake a successful refresh asked for, or — when
+/// refresh gave nothing (null) or an already-elapsed time — the next local
+/// midnight (+1 min, so we wake just *after* the date rolls, not racing it).
+/// Pure + unit-testable; this is what guarantees a real future wake.
+static DateTime nextWakeOrMidnight(DateTime? preferred, DateTime now) {
+  if (preferred != null && preferred.isAfter(now)) return preferred;
+  return DateTime(now.year, now.month, now.day + 1).add(const Duration(minutes: 1));
+}
+
 @pragma('vm:entry-point')
 Future<void> widgetAlarmCallback(int id) async {
   WidgetsFlutterBinding.ensureInitialized();
-  initSqliteFfi();                                     // this isolate must select FFI too
-  final db = await AppDatabase.open(singleInstance: false);
+  DateTime? preferred;
   try {
-    final service = WidgetService(AppRepositories(db));
-    await service.refresh();
-    if (service.nextWakeAt != null) await WidgetBackground.arm(service.nextWakeAt!);  // re-arm the chain
-  } finally { await db.close(); }
+    initSqliteFfi();                                   // this isolate must select FFI too
+    final db = await AppDatabase.open(singleInstance: false);
+    try {
+      final service = WidgetService(AppRepositories(db));
+      await service.refresh();
+      preferred = service.nextWakeAt;                  // may stay null if refresh threw
+    } finally { await db.close(); }
+  } catch (e, st) {
+    debugPrint('[widget] alarm callback failed: $e\n$st');  // never crash the isolate
+  } finally {
+    // ALWAYS re-arm — even after a run that produced no `preferred` wake. The
+    // chain re-arms itself from *inside* each fire, so a fire that skipped
+    // re-arming (settings load / DB open threw) would freeze the widget until
+    // the app is next opened. The midnight fallback heals it.
+    await WidgetBackground.arm(nextWakeOrMidnight(preferred, DateTime.now()));
+  }
 }
 ```
+
+The old shape — `if (service.nextWakeAt != null) arm(...)` *inside* the `try` — is the trap: any
+throw before that line (or a null `nextWakeAt`) skips the re-arm and permanently stalls the
+widget. Re-arm unconditionally in the outer `finally`.
 
 This is also a natural place to roll a reminder horizon forward (see
 `flutter-local-notifications-reminders`).
@@ -153,8 +189,26 @@ This is also a natural place to roll a reminder horizon forward (see
 
 - **Flutter formats, native renders** — push JSON via `home_widget`, don't try to draw from Dart.
 - **`updatePeriodMillis = 0` + your own alarm chain** — the system refresh is too coarse; own it.
-- **Re-arm the next alarm from the callback** — `oneShotAt` is one-shot; the chain dies otherwise.
-  A startup `arm(nextWakeAt)` is the backstop.
+- **Re-arm the next alarm in the callback's `finally`, unconditionally** — `oneShotAt` is
+  one-shot and the chain re-arms itself from *inside* each fire, so a run that threw (or produced
+  a null/past wake) before re-arming permanently freezes the widget. Fall back to next midnight
+  (`nextWakeOrMidnight`); a startup `arm(nextWakeAt)` is the backstop (§7).
+- **`updateWidget(qualifiedAndroidName: '<namespace>.<Provider>')`, not `androidName:`** — a
+  bare name resolves as `<applicationId>.<name>`, which `ClassNotFound`s on any flavor with an
+  `applicationIdSuffix` (`.dev`), silently dropping every proactive repaint (§5).
+- **Re-bind placed widgets on boot / app update** — register each provider for `BOOT_COMPLETED`,
+  `MY_PACKAGE_REPLACED`, and `QUICKBOOT_POWERON` (manifest `intent-filter` + a branch in
+  `onReceive` that calls `onUpdate` for `getAppWidgetIds(ComponentName(context, this::class.java))`).
+  After a reboot/update the launcher drops its cached RemoteViews and falls back to
+  `initialLayout`; without re-bind the widget lingers on the placeholder until the app or alarm
+  next runs.
+- **Calendar "today" from the live clock, not baked JSON** — compute today (`todayMillis()`)
+  natively and match each cell by its own epoch (`isToday = epoch == today`); never trust a
+  `today` value baked into the pushed JSON. A late/skipped midnight rebuild leaves stale baked
+  data highlighting *yesterday*.
+- **Theme the `initialLayout` placeholder** — point every provider's `initialLayout` at a themed
+  loading layout with `drawable-night` / `values-night` resources. The default pre-data frame
+  otherwise flashes a light card (dark text on dark, or a cream card) before real data arrives.
 - **Fixed alarm id** so re-arming replaces rather than stacks alarms.
 - **`exact + allowWhileIdle + wakeup + rescheduleOnReboot`** — precise through Doze, survives
   reboot.
