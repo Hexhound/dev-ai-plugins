@@ -13,6 +13,14 @@
       "name": "mobile-dev",
       "source": "./plugins/mobile-dev",
       "description": "Flutter-based iOS & Android app development: skills, code guidelines, and MCP servers."
+    },
+    {
+      "name": "roam-dev",
+      "source": {
+        "source": "github",
+        "repo": "Hexhound/roam"
+      },
+      "description": "Build on roam-sync: E2E-encrypted offline-first sync across a user's own devices (P2P + zero-knowledge relay), LAN pairing, and one-shot nearby sharing."
     }
   ]
 }

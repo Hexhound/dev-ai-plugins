@@ -8,6 +8,11 @@ Not intended for public distribution.
 | Plugin | Purpose |
 |--------|---------|
 | `mobile-dev` | Flutter-based iOS & Android app development: skills, code guidelines, MCP servers |
+| `roam-dev` | Building on roam-sync: E2E-encrypted offline-first multi-device sync, LAN pairing, nearby sharing |
+
+Unlike `mobile-dev`, `roam-dev` is **not** vendored here — it lives in the
+`Hexhound/roam` repo and is referenced by a `github` source, so the skills version
+with the library they describe. Installing it clones that repo.
 
 More to come (e.g. `elixir-dev` for backend) — each is a self-contained, independently
 installable plugin under `plugins/`.
