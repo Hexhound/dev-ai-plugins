@@ -7,6 +7,7 @@ Not intended for public distribution.
 
 | Plugin | Purpose |
 |--------|---------|
+| `coding-guidelines` | Provider-neutral, language-agnostic coding guidelines (how code is written & commented) |
 | `mobile-dev` | Flutter-based iOS & Android app development: skills, code guidelines, MCP servers |
 | `roam-dev` | Building on roam-sync: E2E-encrypted offline-first multi-device sync, LAN pairing, nearby sharing |
 

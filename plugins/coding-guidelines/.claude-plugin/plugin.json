@@ -1,0 +1,9 @@
+{
+  "name": "coding-guidelines",
+  "description": "Provider-neutral, language-agnostic coding guidelines: how code should be written and commented across any stack.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Eduardo Barreto Alexandre",
+    "email": "claude@sezdm.com"
+  }
+}

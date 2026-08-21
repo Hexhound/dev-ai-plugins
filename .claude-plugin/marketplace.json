@@ -10,6 +10,11 @@
   },
   "plugins": [
     {
+      "name": "coding-guidelines",
+      "source": "./plugins/coding-guidelines",
+      "description": "Provider-neutral, language-agnostic coding guidelines: how code should be written and commented across any stack."
+    },
+    {
       "name": "mobile-dev",
       "source": "./plugins/mobile-dev",
       "description": "Flutter-based iOS & Android app development: skills, code guidelines, and MCP servers."
