@@ -29,13 +29,14 @@ chmod +x .claude/verify
 ```
 
 Define the `precommit` alias in `mix.exs` if it doesn't exist — it should run the full
-deterministic check the gate depends on:
+deterministic check the gate depends on. For an Ash + Phoenix project:
 
 ```elixir
 defp aliases do
   [
     precommit: [
       "compile --warning-as-errors",
+      "ash.codegen --check",
       "format --check-formatted",
       "credo --strict",
       "test"
@@ -44,8 +45,12 @@ defp aliases do
 end
 ```
 
-If the project uses Dialyzer or `deps.unlock --check-unused`, add them here — the gate is
-only as strong as this alias.
+- `ash.codegen --check` fails if generated resources/migrations are stale — run
+  `mix ash.codegen <name>` to regenerate, never hand-edit generated files.
+- `format --check-formatted` and `test` are the floor; add Dialyzer or
+  `deps.unlock --check-unused` if the project uses them. The gate is only as strong as
+  this alias — the same `mix precommit` runs on turn-end (Stop hook) and on every
+  `git commit` (commit guard) when `dev-workflow` is installed.
 
 ## Code conventions
 
