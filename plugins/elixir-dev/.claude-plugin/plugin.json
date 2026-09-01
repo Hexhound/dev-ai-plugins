@@ -1,0 +1,9 @@
+{
+  "name": "elixir-dev",
+  "description": "Elixir / Phoenix / LiveView backend development: stack conventions plus the verify-gate wiring (mix precommit) that the language-neutral dev-workflow plugin enforces.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Eduardo Barreto Alexandre",
+    "email": "claude@sezdm.com"
+  }
+}

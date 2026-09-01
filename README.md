@@ -8,6 +8,8 @@ Not intended for public distribution.
 | Plugin | Purpose |
 |--------|---------|
 | `coding-guidelines` | Provider-neutral, language-agnostic coding guidelines (how code is written & commented) |
+| `dev-workflow` | Provider- and language-neutral agentic workflow: feature/refactor/bugfix playbooks, a fresh-context reviewer subagent, and a deterministic verify gate |
+| `elixir-dev` | Elixir / Phoenix / LiveView backend: stack conventions + the `mix precommit` verify-gate wiring `dev-workflow` enforces |
 | `mobile-dev` | Flutter-based iOS & Android app development: skills, code guidelines, MCP servers |
 | `roam-dev` | Building on roam-sync: E2E-encrypted offline-first multi-device sync, LAN pairing, nearby sharing |
 
@@ -15,8 +17,10 @@ Unlike `mobile-dev`, `roam-dev` is **not** vendored here — it lives in the
 `Hexhound/roam` repo and is referenced by a `github` source, so the skills version
 with the library they describe. Installing it clones that repo.
 
-More to come (e.g. `elixir-dev` for backend) — each is a self-contained, independently
-installable plugin under `plugins/`.
+`dev-workflow` and `elixir-dev` follow the same generic/language-pack split as
+`coding-guidelines`/`mobile-dev`: the workflow, reviewer, and gate *mechanism* are
+language-neutral in `dev-workflow`; `elixir-dev` only supplies the stack conventions and
+the one-line verify command the gate runs. A Go or Node pack would be equally thin.
 
 ## Install
 
@@ -50,6 +54,27 @@ Our `mobile-dev` plugin, alongside the official Flutter agent skills
 `mobile-dev` also ships a `PreToolUse` hook that blocks unbounded `flutter run` /
 `adb logcat` from flooding the conversation — it activates automatically once the plugin
 is enabled (needs `jq` on PATH; see [Dependencies](#dependencies-nix-flake)).
+
+#### Elixir / Phoenix (backend)
+
+The generic `dev-workflow` plugin plus the `elixir-dev` language pack:
+
+```
+/plugin install dev-workflow@dev-ai-plugins
+/plugin install elixir-dev@dev-ai-plugins
+```
+
+Then, **once per repo**, wire the verify gate the Stop hook enforces (see the
+`phoenix-liveview-conventions` skill for the `mix.exs` alias):
+
+```bash
+mkdir -p .claude
+printf '#!/usr/bin/env bash\nexec mix precommit\n' > .claude/verify
+chmod +x .claude/verify
+```
+
+`dev-workflow` is stack-agnostic — install it alone (no `.claude/verify`, no gate) or pair
+it with any language pack. Its Stop hook needs `jq` on PATH; it fails open without it.
 
 ## Layout
 
