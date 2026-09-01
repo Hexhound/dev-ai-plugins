@@ -7,17 +7,31 @@ description: Use when a code change is complete and needs checking before commit
 
 Every code-producing task ends here. Gates run in order; do not skip ahead.
 
-## Gate 1 — Deterministic (zero model tokens)
+## Gate 1 — Deterministic (zero model tokens), in two tiers
 
-The project's `./.claude/verify` script must exit 0. It runs automatically on turn-end via
-the `dev-workflow` Stop hook, but run it yourself before asking for review:
+Don't run the whole suite + linters on every build↔review iteration — that burns tokens for
+no new signal. Split the deterministic check:
+
+- **Gate 1a — fast, every iteration:** compile + only the tests **related to the change**
+  (e.g. `mix compile --warnings-as-errors` then `mix test test/path/to/feature_test.exs`).
+  This is what the builder and reviewer run each loop. If the repo has a
+  `./.claude/verify-fast`, that's the fast tier and the Stop hook runs it each turn.
+- **Gate 1b — full, once before concluding:** the whole suite + formatter + linters
+  (credo, sobelow, `ash.codegen --check`, …) via `./.claude/verify`. Run this **once** as the
+  final step, after the review loop has settled — it catches regressions elsewhere and
+  style/security issues without paying for them every iteration. The commit guard also runs
+  it, so a commit can't land on a red full gate.
 
 ```
+# during the loop:
+mix compile --warnings-as-errors && mix test <the feature's test files>
+# once at the end:
 ./.claude/verify
 ```
 
-If a repo has no `./.claude/verify`, create one (one line calling the stack's checks — e.g.
-`exec mix precommit`, `exec go test ./...`, `exec npm test`). No script → no gate.
+If a repo has no `./.claude/verify`, create one (`exec mix precommit`, `exec go test ./...`,
+`exec npm test`); optionally add `./.claude/verify-fast` for the cheap per-turn tier. No
+script → no gate.
 
 ## Gate 2 — Fresh-context review (ONE subagent, not a fleet)
 

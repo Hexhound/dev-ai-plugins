@@ -35,13 +35,14 @@ If unsure, default to the single-session flow. Do not fan out on a hunch.
 3. **Per subtask (isolated):**
    a. Create a git worktree so parallel builders don't collide:
       `git worktree add ../<repo>-<subtask> -b feat/<subtask>`.
-   b. **Builder** implements the subtask test-first in that worktree until `./.claude/verify`
-      is green.
+   b. **Builder** implements the subtask test-first in that worktree, running only the
+      **fast** check (compile + that subtask's tests) while iterating — not the whole suite.
    c. **Reviewer** (`code-reviewer`, Sonnet, fresh context) reviews that subtask's diff
-      against its acceptance criteria. Builder fixes real findings; re-verify.
+      against its acceptance criteria. Builder fixes real findings; re-run the fast check.
 4. **Integrate (single session, sequential — NOT parallel).** Merge each green worktree
-   back in turn, resolving conflicts, running `./.claude/verify` after each merge. This step
-   is where cross-subtask assumptions surface, so it is deliberately serial.
+   back in turn, resolving conflicts, running the **full** `./.claude/verify` after each
+   merge — this is where the whole suite + linters earn their keep, catching cross-subtask
+   regressions. Deliberately serial.
 5. **Final review-gate** over the integrated result, then push → PR bot.
 6. **Clean up worktrees:** `git worktree remove …` for each.
 

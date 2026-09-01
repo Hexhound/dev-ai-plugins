@@ -16,10 +16,13 @@ cost 3–10x more tokens and degrade fidelity at each handoff.
    (it can't rationalize code it just wrote), not from more agents. Use the
    `code-reviewer` subagent (Sonnet) as the second gate.
 
-2. **The primary gate is a script, not a model.**
-   A deterministic check (`./.claude/verify`) runs on turn-end via a Stop hook and blocks
-   until it passes — zero model tokens, no argument. Model review is the *second* gate,
-   for logic and design the script can't see.
+2. **The primary gate is a script, not a model — in two tiers.**
+   A cheap per-turn check (`./.claude/verify-fast`, e.g. compile) runs on turn-end via a
+   Stop hook. The **full** gate (`./.claude/verify` — full suite + linters like
+   credo/sobelow) runs **once** before concluding a feature and on every `git commit`
+   (commit guard). During the build↔review loop run only the tests *related to the change* —
+   re-running the whole suite + linters each iteration burns tokens for no new signal. Model
+   review is the *second* gate, for logic and design the scripts can't see.
 
 3. **Keep planning and implementation in the SAME session.**
    Fragmenting them into separate agents loses prompt cache and forces re-exploration of

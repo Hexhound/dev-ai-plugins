@@ -23,11 +23,16 @@ them into separate agents).
 3. **Plan in-session and stop for approval.** Using the scout's brief, list files to touch,
    new modules, tests to write, and any decisions you're unsure about. Surface the scout's
    open questions. Wait for the human's OK before coding.
-4. **Implement test-first.** Write failing tests against the acceptance criteria, then the
-   implementation, until the deterministic gate is green.
-5. **Gate 1:** `./.claude/verify` must pass. Never claim done on red.
+4. **Implement test-first, iterate cheaply.** Write failing tests against the acceptance
+   criteria, then the implementation. During this loop run only the **fast** check — compile
+   + the tests **related to this feature** (`mix compile --warnings-as-errors && mix test
+   <feature test files>`), not the whole suite/linters. Don't burn tokens re-running
+   everything each iteration.
+5. **Gate 1 (full, once):** when the feature has settled, run `./.claude/verify` — the full
+   suite + formatter + linters (credo/sobelow/…). This catches regressions elsewhere and
+   style/security at the end. Never claim done on red.
 6. **Gate 2:** run the `review-gate` skill (fresh-context `code-reviewer`). Triage, fix,
-   re-verify.
+   re-run the fast check, then Gate 1 again if anything changed.
 7. **Gate 4:** push → PR bot.
 
 ## Rules

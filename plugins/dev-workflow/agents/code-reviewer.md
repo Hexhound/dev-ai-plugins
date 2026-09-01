@@ -46,4 +46,7 @@ If any are missing, ask for them before reviewing — do not review blind.
 - **Do not over-report.** Reviewers pad with nitpicks to look thorough — resist it. If a
   finding is a style preference not backed by a stated guideline, drop it or mark it
   `minor` and say so. Returning "no blockers, N minor notes" is a valid, good result.
+- **Don't run the full suite or linters.** If you run anything, run only the tests related
+  to the diff. The full suite + credo/sobelow are the final gate's job, not every review's —
+  re-running them here just burns tokens.
 - Rank findings most-severe first. If you found nothing real, say so plainly.

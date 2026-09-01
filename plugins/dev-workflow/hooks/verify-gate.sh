@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
-# Stop hook: block turn-end until the project's verify gate passes.
+# Stop hook: block turn-end until the project's FAST gate passes.
 #
-# The gate command is the REPO's own executable `./.claude/verify` script, so this hook
-# stays language-neutral — an Elixir repo drops `exec mix precommit`, Go `exec go test
-# ./...`, Node `exec npm test`, etc. No `./.claude/verify` -> no gate -> allow.
+# Two-tier gate (to avoid burning tokens re-running the full suite every turn):
+#   - `./.claude/verify-fast`  — cheap per-turn check (e.g. compile + focused/quick tests).
+#     This hook prefers it. Meant to run on every turn end.
+#   - `./.claude/verify`       — the FULL, authoritative gate (full suite + credo/sobelow/…).
+#     Run once before concluding a feature; enforced at commit time by the commit guard.
+# If no `verify-fast` exists, this hook falls back to the full `verify`. The gate command is
+# the REPO's own executable script, so this hook stays language-neutral. No script -> allow.
 #
 # Reads the Stop hook payload as JSON on stdin (fields used: .stop_hook_active).
 # On failure it emits {"decision":"block","reason":...} so Claude keeps fixing; it caps
@@ -19,15 +23,17 @@ payload="$(cat)"
 # Fail open if jq is unavailable (e.g. devenv shell not yet reloaded).
 command -v jq >/dev/null 2>&1 || exit 0
 
-# No gate defined for this repo -> nothing to enforce.
-[ -x ./.claude/verify ] || exit 0
+# Prefer the fast per-turn gate; fall back to the full gate; neither -> nothing to enforce.
+gate=./.claude/verify
+[ -x ./.claude/verify-fast ] && gate=./.claude/verify-fast
+[ -x "$gate" ] || exit 0
 
 # Per-project block counter, keyed by cwd so parallel projects don't share state.
 key="$(pwd | cksum | tr -d ' \t')"
 counter="${TMPDIR:-/tmp}/verify-gate.${key}.count"
 
 # Gate passes -> reset counter and allow.
-if ./.claude/verify >"${TMPDIR:-/tmp}/verify-gate.log" 2>&1; then
+if "$gate" >"${TMPDIR:-/tmp}/verify-gate.log" 2>&1; then
   rm -f "$counter"
   exit 0
 fi
@@ -48,6 +54,6 @@ if [ "$n" -ge "$MAX_BLOCKS" ]; then
   exit 0
 fi
 
-jq -nc --arg r "Verify gate failed (attempt ${n}/${MAX_BLOCKS}) — do not end the turn on red. Fix the failures, then stop again. Last 40 lines of ./.claude/verify output:
+jq -nc --arg r "Fast gate (${gate}) failed (attempt ${n}/${MAX_BLOCKS}) — do not end the turn on red. Fix the failures, then stop again. Last 40 lines:
 ${tail}" '{decision:"block", reason:$r}'
 exit 0

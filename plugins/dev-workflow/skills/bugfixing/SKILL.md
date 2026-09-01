@@ -15,8 +15,11 @@ Systematic, not guess-and-check.
 2. **Find root cause, not symptom.** Trace to the actual defect. State the cause in one
    sentence before proposing a fix.
 3. **Fix minimally.** Change the least code that makes the failing test pass without
-   breaking others.
-4. **Gate 1:** `./.claude/verify` green (new test + all existing tests).
+   breaking others. While iterating, run only the **fast** check — compile + the tests around
+   this bug (`mix compile --warnings-as-errors && mix test <the test file>`), not the whole
+   suite.
+4. **Gate 1 (full, once):** when the fix settles, run `./.claude/verify` — full suite +
+   linters — to confirm no regression anywhere and no new warnings.
 5. **Gate 2:** `review-gate` skill — reviewer confirms the fix addresses the root cause and
    adds no regression.
 
