@@ -19,8 +19,10 @@ Invoke the **feature-development** skill and drive it as a guided flow.
    the change's location is already obvious. Do NOT let the scout plan — it gathers facts.
 4. Using the brief and the installed conventions skill (or `docs/guidelines.md`), propose a
    short plan (files, new modules, tests, open decisions) and **stop for my OK**.
-5. Implement test-first until the gate is green. Do not claim done on red.
-6. Run the **review-gate** skill (fresh-context `code-reviewer`). Triage, fix, re-verify.
+5. Implement test-first; during the loop run only the **fast** check (compile + this
+   feature's tests), not the whole suite. Do not claim done on red.
+6. **Full gate once** when it settles: `./.claude/verify` (whole suite + linters).
+7. Run the **review-gate** skill (fresh-context `code-reviewer`). Triage, fix, re-verify.
 
 Follow the skill's rules exactly. Keep planning and implementation in THIS session — offload
 only *exploration* (the scout), never the planning or building.
