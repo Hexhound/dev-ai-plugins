@@ -12,14 +12,23 @@ them into separate agents).
 
 1. **Brainstorm intent, not code.** Nail down acceptance criteria first — they are also
    the reviewer's checklist. If the goal is fuzzy, ask. (~42% of failures are fuzzy specs.)
-2. **Plan in-session and stop for approval.** List files to touch, new modules, tests to
-   write, and any decisions you're unsure about. Wait for the human's OK before coding.
-3. **Implement test-first.** Write failing tests against the acceptance criteria, then the
+2. **Scout the codebase (offloaded).** Dispatch the read-only `scout` subagent (Sonnet)
+   with the feature description. It returns a compact brief — files to touch, conventions
+   in use, integration points, gotchas — *without* dumping the codebase into this session.
+   This keeps exploration tokens and noise out of your context. Skip only for a change
+   whose location is already obvious.
+   - **Do NOT offload the planning itself** — only the exploration. Planning and
+     implementation stay in THIS session (fragmenting them loses cache and context).
+     The scout gathers facts; you plan.
+3. **Plan in-session and stop for approval.** Using the scout's brief, list files to touch,
+   new modules, tests to write, and any decisions you're unsure about. Surface the scout's
+   open questions. Wait for the human's OK before coding.
+4. **Implement test-first.** Write failing tests against the acceptance criteria, then the
    implementation, until the deterministic gate is green.
-4. **Gate 1:** `./.claude/verify` must pass. Never claim done on red.
-5. **Gate 2:** run the `review-gate` skill (fresh-context `code-reviewer`). Triage, fix,
+5. **Gate 1:** `./.claude/verify` must pass. Never claim done on red.
+6. **Gate 2:** run the `review-gate` skill (fresh-context `code-reviewer`). Triage, fix,
    re-verify.
-6. **Gate 4:** push → PR bot.
+7. **Gate 4:** push → PR bot.
 
 ## Rules
 
