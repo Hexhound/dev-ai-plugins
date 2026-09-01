@@ -40,6 +40,11 @@ cost 3–10x more tokens and degrade fidelity at each handoff.
 - **Refactor** → `/refactor` (or the `refactoring` skill)
 - **Bug fix** → `/bugfix` (or the `bugfixing` skill)
 - **Review anything** → `/review-gate` (or the `review-gate` skill)
+- **Large feature, genuinely independent subtasks** → `/feature-parallel` — the OPT-IN
+  exception to rule 1: builder+reviewer duo per subtask, in parallel, with a concurrency
+  cap you set. Costs a multiple of a single session. It first runs an independence test and
+  falls back to `/feature` if the subtasks aren't truly independent. Don't reach for it by
+  default.
 
 Every one of them ends at the **review gate**. Do not skip it.
 
