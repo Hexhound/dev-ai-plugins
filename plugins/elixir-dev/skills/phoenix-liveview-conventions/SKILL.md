@@ -32,10 +32,15 @@ Define the `precommit` alias in `mix.exs` if it doesn't exist — it should run 
 deterministic check the gate depends on. For an Ash + Phoenix project:
 
 ```elixir
+def cli do
+  # Without this, `mix test` inside the precommit alias runs in the :dev env and errors.
+  [preferred_envs: [precommit: :test]]
+end
+
 defp aliases do
   [
     precommit: [
-      "compile --warning-as-errors",
+      "compile --warnings-as-errors",
       "ash.codegen --check",
       "format --check-formatted",
       "credo --strict",
@@ -45,6 +50,9 @@ defp aliases do
 end
 ```
 
+- The flag is `--warnings-as-errors` (plural) — `--warning-as-errors` is silently ignored.
+- `def cli/0` with `preferred_envs: [precommit: :test]` is required: an alias that ends in
+  `test` otherwise runs `mix test` in `:dev` and fails with an env error.
 - `ash.codegen --check` fails if generated resources/migrations are stale — run
   `mix ash.codegen <name>` to regenerate, never hand-edit generated files.
 - `format --check-formatted` and `test` are the floor; add Dialyzer or
