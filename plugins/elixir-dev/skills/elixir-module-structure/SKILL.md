@@ -1,14 +1,14 @@
 ---
 name: elixir-module-structure
-description: Use when creating a NEW LiveView or GenServer module in this Elixir workspace — enforces splitting each into its mandated files (LiveView → *_live / impl / ui / state; GenServer → public API / impl / server / state) instead of one monolithic module.
+description: Use when creating a NEW LiveView, LiveComponent, or GenServer in this Elixir workspace — enforces splitting each into its mandated files (LiveView/LiveComponent → shell / impl / ui / state; GenServer → public API / impl / server / state) and deciding when a stateful widget should become a LiveComponent.
 ---
 
 # Elixir Module Structure
 
-When you create a **new LiveView** or a **new GenServer**, do not write it as a single
-monolithic file. Split it into the mandated files below. This is a hard convention for this
-workspace — follow it whenever the trigger matches; if a specific module genuinely shouldn't
-be split, say so and ask before collapsing it.
+When you create a **new LiveView**, a **new LiveComponent**, or a **new GenServer**, do not
+write it as a single monolithic file. Split it into the mandated files below. This is a hard
+convention for this workspace — follow it whenever the trigger matches; if a specific module
+genuinely shouldn't be split, say so and ask before collapsing it.
 
 ## LiveView module → 4 files
 
@@ -23,6 +23,34 @@ For a LiveView `MyAppWeb.ThingLive`, create a directory for it and split respons
 
 The `*_live.ex` callbacks stay short: parse input → call `impl`/`state` → assign → render
 via `ui`.
+
+## LiveComponent module → 4 files (same split)
+
+A LiveComponent gets the identical split. For `MyAppWeb.ThingComponent`:
+
+| File | Holds |
+|------|-------|
+| `thing_component.ex` (the shell) | `use Phoenix.LiveComponent` + the callbacks: `mount/1`, `update/2`, `handle_event/3`, `render/1`. Thin — wires callbacks to the other modules. |
+| `impl.ex` | Business/domain logic the callbacks delegate to. No socket, no markup. |
+| `ui.ex` | Markup / function components / presentation helpers. |
+| `state.ex` | The assigns shape and pure transitions over them. |
+
+## When should something be a LiveComponent?
+
+Extract a piece of a page into a LiveComponent when **the state naturally belongs to the
+widget, not the page** — ask *"does it make sense for this data to be handled by the LV or by
+a LiveComponent?"*
+
+Reach for a LiveComponent when:
+
+- It is a **stateful widget** with its own local state/lifecycle (e.g. a media player, an
+  editor, a live-updating panel) — especially one that must **keep state across page
+  navigation**.
+- Folding its logic into the parent LV would make the LV large and complex, or would couple
+  logic that wants to be **reusable** elsewhere.
+
+Keep it in the LV when the state is really the page's. Use LiveComponents **deliberately, not
+by default** — the goal is smaller LVs and reusable widgets, not a component for everything.
 
 ## GenServer module → 4 files
 
