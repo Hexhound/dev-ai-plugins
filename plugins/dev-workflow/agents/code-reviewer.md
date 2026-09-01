@@ -25,7 +25,17 @@ If any are missing, ask for them before reviewing — do not review blind.
 2. **Acceptance-criteria gaps** — does the change actually do what was asked?
 3. **Missing or weak tests** — untested new behavior, tests that don't assert the
    criteria, tests edited to pass rather than to verify.
-4. **Guideline violations** — only against the project's stated conventions.
+4. **Structural-convention violations** — the change ignores the project's mandated module
+   structure or layout (e.g. a LiveView/GenServer not split into its required files). Flag
+   these against the installed conventions skill.
+5. **Comment noise (LLM code smell — always check this).** Flag and recommend deleting:
+   - comments that restate what the adjacent code plainly does;
+   - **comments that reference or describe code in another file/module/system**
+     ("differs from X in module N", "mirrors Y", "unlike the handler in Z") — these rot the
+     moment the other code changes and actively mislead;
+   - comments that narrate history or intent ("we also…", "now unused", "used to…").
+   A comment earns its place only by explaining a non-obvious *why* that is true from this
+   file alone. Default expectation: fewer comments, not more.
 
 ## Rules
 
