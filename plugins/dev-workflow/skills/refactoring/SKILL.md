@@ -14,13 +14,22 @@ characterization tests** — not refactoring. Prove they pass on the *unchanged*
 
 ## Steps
 
-1. **Pin behavior.** Map the target and its existing test coverage. If coverage is
-   insufficient to prove behavior is preserved, add characterization tests and show them
-   green on the current code. Stop for approval on the refactor plan.
-2. **Refactor incrementally**, small steps. After each step the deterministic gate stays
-   green with the **same** tests. Do not edit tests to make them pass.
-3. **Gate 1:** `./.claude/verify` green — same tests passing = behavior preserved.
-4. **Gate 2:** `review-gate` skill, telling the reviewer the invariant is *"behavior and
+1. **Isolate the work — ask, don't assume.** Offer a git worktree
+   (`git worktree add ../<repo>-<slug> -b refactor/<slug>`; recommend when the tree is
+   dirty), a new branch in place (`git checkout -b refactor/<slug>`), or staying on the
+   current branch. Don't create anything unprompted; note if it's not a git repo or already
+   on a suitable branch. Clean up a worktree once merged/abandoned.
+2. **Scout (offloaded).** Dispatch the read-only `scout` subagent to map the target, its
+   callers/usages, and existing test coverage — a compact brief, no codebase dump. Skip only
+   if the surface is obvious. The scout gathers facts; you plan.
+3. **Pin behavior.** If coverage is insufficient to prove behavior is preserved, add
+   characterization tests and show them green on the current code. Stop for approval on the
+   refactor plan.
+4. **Refactor incrementally**, small steps. After each step run the **fast** check (compile
+   + the SAME tests) — they must stay green. Do not edit tests to make them pass.
+5. **Gate 1 (full, once):** `./.claude/verify` (whole suite + linters) when done — same
+   tests still passing = behavior preserved, and no regressions elsewhere.
+6. **Gate 2:** `review-gate` skill, telling the reviewer the invariant is *"behavior and
    public API are unchanged."*
 
 ## Rules
