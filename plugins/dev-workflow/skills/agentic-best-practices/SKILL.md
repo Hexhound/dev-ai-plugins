@@ -36,11 +36,14 @@ cost 3–10x more tokens and degrade fidelity at each handoff.
 
 ## How to run each task
 
-- **New feature** → `/feature` (or the `feature-development` skill)
-- **Refactor** → `/refactor` (or the `refactoring` skill)
-- **Bug fix** → `/bugfix` (or the `bugfixing` skill)
-- **Review anything** → `/review-gate` (or the `review-gate` skill)
-- **Large feature, genuinely independent subtasks** → `/feature-parallel` — the OPT-IN
+(Plugin commands are namespaced `/dev-workflow:<name>`; the interactive menu may also
+accept the bare name.)
+
+- **New feature** → `/dev-workflow:feature` (or the `feature-development` skill)
+- **Refactor** → `/dev-workflow:refactor` (or the `refactoring` skill)
+- **Bug fix** → `/dev-workflow:bugfix` (or the `bugfixing` skill)
+- **Review anything** → `/dev-workflow:review-gate` (or the `review-gate` skill)
+- **Large feature, genuinely independent subtasks** → `/dev-workflow:feature-parallel` — the OPT-IN
   exception to rule 1: builder+reviewer duo per subtask, in parallel, with a concurrency
   cap you set. Costs a multiple of a single session. It first runs an independence test and
   falls back to `/feature` if the subtasks aren't truly independent. Don't reach for it by
