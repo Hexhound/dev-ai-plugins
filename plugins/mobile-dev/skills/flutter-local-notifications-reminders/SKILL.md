@@ -9,12 +9,6 @@ Schedule reminders that fire at a precise instant, survive reboot and Doze, get 
 Disturb, carry action buttons handled without opening the app, and route taps to the right
 screen. A **pure planner** computes the set; a **diff-based** scheduler reconciles it.
 
-> **Revised 2026-09-02 after a live two-device investigation.** The previous version of this
-> skill taught three patterns that silently break delivery in production: a blanket
-> `cancelAll()` re-sync, a notification channel with no alarm category, and a budget that caps
-> only one class of reminder. All three are corrected below and called out as **WRONG**, because
-> an earlier revision recommended them. If you have code following the old advice, fix it.
-
 Pairs with `flutter-sqlite-ffi-fts5` (the background-isolate DB rule) and
 `flutter-home-screen-widgets` (a background action can refresh a widget).
 
@@ -263,27 +257,7 @@ Separate **what to schedule** (pure, testable) from **registering it**:
 List<PlannedReminder> planReminders({required DateTime now, required List<Event> appts, ...}) { ... }
 ```
 
-### WRONG — cancel-then-reschedule
-
-```dart
-// DO NOT DO THIS. An earlier version of this skill recommended it.
-await notifications.cancelAll();
-for (final r in planned) await notifications.schedule(id: r.id, ...);
-```
-
-Two independent defects:
-
-1. **`cancelAll()` dismisses notifications currently in the shade**, not just pending schedules —
-   it maps to `NotificationManager.cancelAll()`. Any re-sync (app launch, resume, settings
-   change, background refresh) therefore *deletes the reminder the user has not read yet*.
-   Observed in production: three reminders posted and alerted, then destroyed 6.5 seconds later
-   by the app's own re-sync. The user hears the alert and finds an empty shade.
-2. **It is non-atomic with no rollback.** The cancel has already run when the reschedule loop
-   starts. `zonedSchedule` throws `exact_alarms_not_permitted` if the exact-alarm permission is
-   absent — which on `minSdk` 31/32 is user-revocable (§1). One throw mid-loop leaves the user
-   with **zero** reminders, silently and permanently, re-executed on every resume.
-
-### RIGHT — reconcile against what is actually pending
+### Reconcile against what is actually pending
 
 ```dart
 Future<void> syncAll({required DateTime now, required ReminderStrings strings}) async {
@@ -306,10 +280,25 @@ Future<void> syncAll({required DateTime now, required ReminderStrings strings}) 
 }
 ```
 
-This fixes the shade wipe, closes the atomicity hole, and removes N alarm writes on every
-resume. Because cancellation is now per-id, make sure you *do* cancel the ids that should
-disappear — deleted entities, deactivated schedules, and **the previous profile's reminders in a
-multi-profile app**, where `syncAll` only ever sees one profile's data.
+Reconciling per-id matters for two reasons that a blanket
+`cancelAll()`-then-reschedule cannot satisfy:
+
+- **`cancelAll()` dismisses notifications currently in the shade**, not just pending schedules —
+  it maps to `NotificationManager.cancelAll()`. A re-sync runs on app launch, on resume, on
+  settings change and from background refresh, so a blanket sweep *deletes the reminder the user
+  has not read yet*. Seen in production: three reminders posted and alerted, then destroyed 6.5
+  seconds later by the app's own re-sync. The user hears the alert and finds an empty shade.
+- **Cancel-then-reschedule is non-atomic with no rollback.** The cancel has already run when the
+  reschedule loop starts, and `zonedSchedule` throws `exact_alarms_not_permitted` when the
+  exact-alarm permission is absent — user-revocable on `minSdk` 31/32 (§1). One throw mid-loop
+  leaves the user with **zero** reminders, silently and permanently, re-attempted on every
+  resume. Reconciling only touches what changed, so a failure costs one reminder rather than all
+  of them.
+
+It also removes N alarm writes on every resume. Because cancellation is now per-id, make sure you
+*do* cancel the ids that should disappear — deleted entities, deactivated schedules, and **the
+previous profile's reminders in a multi-profile app**, where `syncAll` only ever sees one
+profile's data.
 
 Give each reminder a **stable id** from a semantic key so a re-sync replaces rather than
 duplicates:
