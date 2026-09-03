@@ -161,6 +161,16 @@ adding a second one, so the reminder cannot fire twice. Guard with `canScheduleE
 *and* catch `SecurityException` — the grant can be revoked between the check and the call — and
 treat every failure as "the plugin's own alarm stands": late beats absent.
 
+**Promotion does not survive a reboot.** It lives only in AlarmManager;
+`ScheduledNotificationBootReceiver` → `rescheduleNotifications` re-arms everything from the
+plugin's store, under the schedule mode the plugin persisted, and your exemption is silently gone
+until the app is next opened. Record each promotion yourself (SharedPreferences: id → trigger
+time) and replay it from your own `BOOT_COMPLETED` / `MY_PACKAGE_REPLACED` receiver, registered at
+a **negative priority** so the ordered broadcast reaches it after the plugin's — the promotion is
+a lookup of the PendingIntent that receiver re-creates. Drop records whose instant has passed
+rather than re-arming them: a past alarm clock fires immediately, announcing a dose at whatever
+hour the phone came on.
+
 **Never promote a repeating reminder.** `matchDateTimeComponents` alarms are re-armed by the
 plugin as each one fires; replacing that with a one-shot alarm clock delivers the next occurrence
 and then silently stops forever. One-shots only.
@@ -528,6 +538,8 @@ horizon it did before (§9).
 - **Share the write logic** between foreground and background action paths.
 - **A scheduled notification's text is frozen** — put the due time in the body up front (§11).
 - **Re-plan after every answer**, or an already-armed nudge fires at someone who answered (§11).
+- **Re-apply alarm-clock promotion after boot** — the plugin's boot receiver re-arms under its
+  own mode and quietly drops yours (§4).
 - **A catch-up sweep needs "was it delivered?", not just "was it acknowledged?"** — the plugin's
   pending list is the only witness (§11).
 - **A coalesced notification needs a multi-target payload**, or its action button answers for one
