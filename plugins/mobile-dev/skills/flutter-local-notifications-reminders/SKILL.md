@@ -499,6 +499,13 @@ act on, still ends with an unfixed phone.
   not a preference, and a user who chose it should have understood what they chose. Persist the
   mute in **device-level** settings and keep it out of any sync: whether this handset's owner
   wants to be nagged is a fact about the handset, not about the account.
+- **Throttle the interruption, or you are selling the mute button.** Once per launch means six
+  dialogs on a phone opened six times a day, and the fastest way to stop them is the permanent
+  silence — so an unthrottled warning trains people into muting the one thing that would have
+  told them their reminders are not arriving. Cap it at one a day, stamp the timestamp when the
+  notice is *shown* rather than answered (backgrounding a dialog is still an interruption), and
+  treat a future timestamp from a rolled-back clock as due rather than locking the notice out
+  until the calendar catches up.
 - **Every row needs a step, not just a destination.** "Open settings" drops the user on an OS
   screen they have never seen, hunting for a switch nobody named. Carry a separate one-line
   instruction per issue — which toggle, under which heading — set apart visually from the
