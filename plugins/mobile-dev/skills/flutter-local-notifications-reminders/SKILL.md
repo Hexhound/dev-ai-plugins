@@ -456,6 +456,27 @@ watermark** — a "last handled" timestamp — and on every trigger display ever
 `(watermark, now]`, re-arming from the watermark. A dropped or late alarm still surfaces, and the
 chain self-heals.
 
+**A watermark cannot tell "never delivered" from "delivered and ignored."** Nothing of yours runs
+when an alarm fires, so `(watermark, now]` with no acknowledgement includes every item the user
+*saw* and simply did not act on. If acknowledging is optional in your app — logging a dose,
+ticking a task — that is the normal path, and the next sweep re-posts a whole day of items the
+user already handled. Found on a day-boundary test: sync, cross midnight, sync again.
+
+The missing signal is the plugin's own store. `ScheduledNotificationReceiver` →
+`scheduleNextNotification` → `removeNotificationFromCache` drops a one-shot the moment its
+receiver runs, so at sweep time:
+
+- **id gone from `pendingNotificationRequests()`** → it fired. Leave it alone.
+- **id still there** → it never fired: phone off across the instant, or a force-stop cleared the
+  real `PendingIntent` while leaving the plugin's bookkeeping intact — the very drift the sweep
+  exists for.
+
+Ask about the id the alarm was **armed** under, not the id of the notification you are about to
+post — they differ whenever the sweep drops an expired member, and an id that was never scheduled
+answers "still pending" every time, defeating the gate silently. Read the pending set **once,
+before the reconcile's cancel loop**; cancelling a spent id erases the evidence. Model both halves
+in the fake sink your tests use: arming adds an id, firing removes it.
+
 Two cautions:
 
 - **A WorkManager periodic worker is not an independent second path.** Google's
@@ -507,6 +528,8 @@ horizon it did before (§9).
 - **Share the write logic** between foreground and background action paths.
 - **A scheduled notification's text is frozen** — put the due time in the body up front (§11).
 - **Re-plan after every answer**, or an already-armed nudge fires at someone who answered (§11).
+- **A catch-up sweep needs "was it delivered?", not just "was it acknowledged?"** — the plugin's
+  pending list is the only witness (§11).
 - **A coalesced notification needs a multi-target payload**, or its action button answers for one
   item and abandons the rest (§8).
 
