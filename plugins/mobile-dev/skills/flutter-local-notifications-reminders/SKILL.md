@@ -429,7 +429,7 @@ works", and never show a healthy state until the check actually passes.
 | DND disallows alarms | `getConsolidatedNotificationPolicy()` → `PRIORITY_CATEGORY_ALARMS` | — |
 | Alarm volume zero (if using alarm audio) | `AudioManager.getStreamVolume(STREAM_ALARM) == 0` | — |
 
-Four rules that decide whether the health screen is trustworthy:
+Five rules that decide whether the health screen is trustworthy:
 
 - **Check the channel *group*, not just the channel.** Muting a group leaves every channel inside
   it still reporting its original importance while nothing is delivered — precisely the silent
@@ -446,6 +446,13 @@ Four rules that decide whether the health screen is trustworthy:
   fact told twice, and a list of five warnings is one the user scrolls past. Show the card *only*
   when something is wrong; a standing "reminders are fine" row is a row nobody reads, and its
   presence is the whole signal.
+- **Never report a restriction the app has already routed around, or that the device cannot
+  lift.** If this alert style promotes to `setAlarmClock` (§4), the Doze whitelist changes nothing
+  for it — reporting `isIgnoringBatteryOptimizations` there sends the user to fix a setting that
+  was already irrelevant. Worse, the fix may not exist: a Motorola Android 15 build (measured
+  2026-09-03) offers *only* an "allow background usage" toggle on the app's battery page and no
+  Doze-exemption control at all, so the row is unfixable and the warning never clears no matter
+  what the user does. Gate each row on whether *this* build can act on it.
 
 **Background restriction is the one that will bite you.** An OEM battery manager sets appop
 `RUN_ANY_IN_BACKGROUND: ignore`; AlarmManager then holds every alarm in a
@@ -453,11 +460,62 @@ Four rules that decide whether the health screen is trustworthy:
 active — hours late, all at once. `exactAllowWhileIdle` does not help; only `setAlarmClock` (§4)
 or the user unrestricting the app does. **No API lets an app lift its own restriction.**
 
+**Background restriction and battery optimisation are two different settings**, and users — and
+agents — merge them constantly. `isBackgroundRestricted()` is the appop above;
+`isIgnoringBatteryOptimizations()` is the Doze whitelist. Turning on "allow background usage"
+clears the first and leaves the second exactly as it was, so a health screen that reports both
+looks broken to a user who just fixed the thing you told them to fix. Word each row for the
+switch it actually measures, and re-probe both after the user returns.
+
+**A reboot on a restricted phone runs no receiver at all.** The manifest boot receivers are how
+alarms come back (§4), but under `RUN_ANY_IN_BACKGROUND: ignore` the OS declines to start a
+process for one, so *nothing* is re-armed and the reminders stay unarmed from that boot until the
+app is next opened by hand — no error, no notification, no trace. Detect it: have your own boot
+receiver record which boot it ran for, expose that alongside `SystemClock.elapsedRealtime()`-derived
+boot time, and on launch compare. A `recoveryRanFor` that is null or older than `bootedAt` is a
+window in which every reminder was silently dropped, and it is worth telling the user about
+specifically — it explains the doses they already missed, which a generic "check your settings"
+card does not. Both values null off Android and on any platform failure: a missing measurement
+must never read as a gap.
+
 Do **not** request `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`. Google's acceptable-use list is
 IM/calling, safety apps, task automation and peripheral companions — alarms are *not* on it, and
 the Doze documentation explicitly points alarm apps at `setExactAndAllowWhileIdle` instead. Read
 the state as a diagnostic and deep-link instead. Wrap every Settings intent in a
 `ActivityNotFoundException` fallback.
+
+### Where the warning lives, and how it reads
+
+Detection is the easy half. A correct probe attached to the wrong surface, or to copy nobody can
+act on, still ends with an unfixed phone.
+
+- **Not a permanent card on the main screen.** A red block that is there every launch is one the
+  user learns to scroll past within a week, and it costs that space forever. Raise it as a
+  **dialog after onboarding completes**, and keep a **standing row in Settings** — the dialog is
+  the interruption, Settings is where someone goes looking once they have decided to fix it.
+- **Offer a real way out, including a permanent one.** Dismiss ("not now", returns next launch)
+  *and* "don't show again", the latter behind a confirmation that states the consequence in
+  plain terms — a dose reminder may arrive late or not at all. Silencing a delivery warning is
+  not a preference, and a user who chose it should have understood what they chose. Persist the
+  mute in **device-level** settings and keep it out of any sync: whether this handset's owner
+  wants to be nagged is a fact about the handset, not about the account.
+- **Every row needs a step, not just a destination.** "Open settings" drops the user on an OS
+  screen they have never seen, hunting for a switch nobody named. Carry a separate one-line
+  instruction per issue — which toggle, under which heading — set apart visually from the
+  consequence text, because they answer different questions.
+- **Quote a label only where the screen is Google's.** Notifications, exact alarms and battery
+  optimisation are stock screens with stable strings, so quote them ("Alarms & reminders",
+  "Unrestricted"). Background restriction is a row on the app details page that every OEM spells
+  differently — *describe* the option there. Naming a label the phone does not have is worse than
+  describing one it does. Where the deep link lands on a page whose single control is a switch at
+  the top (a channel's own settings), describe the position rather than the channel's name, which
+  changes with the alert style.
+- **Blame the phone, not the app.** "Caremate can't run in the background" reads as a defect in
+  your app that the user cannot help with; "your phone is blocking Caremate in the background"
+  points at the thing they can actually change, and is the more accurate sentence besides.
+- **One affordance, shaped like a button.** A chevron plus a text link plus a tappable card are
+  three invitations to one destination and none of them look like the primary action. Give each
+  issue a filled button and make the surrounding panel inert.
 
 ## 11. Catch-up, and why it must be bounded
 
@@ -555,6 +613,10 @@ horizon it did before (§9).
   pending list is the only witness (§11).
 - **A coalesced notification needs a multi-target payload**, or its action button answers for one
   item and abandons the rest (§8).
+- **A promoted alarm makes the Doze-exemption row a lie** — suppress it for styles that use
+  `setAlarmClock`, and remember some OEM builds expose no Doze control to fix it with (§10).
+- **A background-restricted reboot runs no boot receiver**, so nothing is re-armed and nothing
+  reports it — detect the gap by comparing boot time against your receiver's own note (§10).
 - **`cancel(id)` dismisses as well as disarms** — a recovery posted under the spent alarm's id is
   wiped by the same sync. Own id, and a fake sink that models the dismissal (§11).
 

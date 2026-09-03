@@ -24,6 +24,22 @@ thin.
 - Handle every `Future`; no silent unawaited async.
 - Null-safety strict; avoid `!` unless the invariant is proven and commented.
 
+## Localization
+- Every user-visible string goes through `gen-l10n`; the English ARB is the template and no
+  locale ships a missing key.
+- **A regional variant needs every key of its own.** `app_pt_PT.arb` falling back to `app_pt.arb`
+  is silent — a Portugal user is shown Brazilian text and nothing warns anyone. Same for `zh_TW`
+  against `zh`.
+- **Never key a locale bundle by language code** once a regional variant exists. `pt` and `pt_PT`
+  collapse onto the same entry and one silently overwrites the other; key on the full BCP-47 tag
+  (`toLanguageTag()`) and fall back to the base code only if the full tag is absent. This bites
+  hardest outside Flutter's own delegate — exported HTML, share viewers, server-rendered strings.
+- Dialects are not decoration: pick one variant per file and hold the register throughout
+  (pt-BR *celular/você/arquivo* vs pt-PT *telemóvel/si/ficheiro*). Half-translated files read as
+  machine output.
+- Translate the *text*, never the ICU structure — placeholder names, `plural`, `=1`, `other` stay
+  verbatim, and a literal `"` inside an ARB value must be escaped.
+
 ## Definition of done
 - `flutter analyze` clean.
 - `dart format --set-exit-if-changed .` passes.
