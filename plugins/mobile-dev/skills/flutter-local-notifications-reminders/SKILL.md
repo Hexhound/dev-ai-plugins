@@ -1,13 +1,13 @@
 ---
 name: flutter-local-notifications-reminders
-description: Use when a Flutter app needs scheduled local reminders — exact-time zoned notifications that survive reboot and Doze, DND-proof alerting, diff-based idempotent sync that never wipes the shade, OS-restriction health checks, action buttons handled in a background isolate, cold-start tap routing, a pure testable planner, and staying under the iOS 64-pending limit.
+description: Use when a Flutter app needs scheduled local reminders — exact-time zoned notifications that survive reboot and Doze, DND-proof alerting, self-healing idempotent sync that never wipes the shade, OS-restriction health checks, action buttons handled in a background isolate, cold-start tap routing, a pure testable planner, and staying under the iOS 64-pending limit.
 ---
 
 # Local notifications & exact reminders
 
 Schedule reminders that fire at a precise instant, survive reboot and Doze, get past Do Not
 Disturb, carry action buttons handled without opening the app, and route taps to the right
-screen. A **pure planner** computes the set; a **diff-based** scheduler reconciles it.
+screen. A **pure planner** computes the set; a scheduler diffs the cancels and re-arms the rest.
 
 Pairs with `flutter-sqlite-ffi-fts5` (the background-isolate DB rule) and
 `flutter-home-screen-widgets` (a background action can refresh a widget).
@@ -21,7 +21,7 @@ Pairs with `flutter-sqlite-ffi-fts5` (the background-isolate DB rule) and
 5. Getting past Do Not Disturb
 6. Action buttons (Android per-notification vs iOS category)
 7. Handling responses: foreground streams, cold start, background isolate
-8. The pure planner + **diff-based** sync
+8. The pure planner + **self-healing** sync
 9. Budgets and the rolling horizon
 10. OS states that silently break delivery — detect and report
 11. Catch-up, and why it must be bounded
@@ -248,7 +248,7 @@ Three distinct paths:
   Keep the write logic (`applyAction`) a plain function shared with the foreground path so a
   notification action and the in-app button produce identical rows.
 
-## 8. The pure planner + **diff-based** sync
+## 8. The pure planner + **self-healing** sync
 
 Separate **what to schedule** (pure, testable) from **registering it**:
 
@@ -257,30 +257,60 @@ Separate **what to schedule** (pure, testable) from **registering it**:
 List<PlannedReminder> planReminders({required DateTime now, required List<Event> appts, ...}) { ... }
 ```
 
-### Reconcile against what is actually pending
+### Diff the cancels, re-schedule unconditionally
 
 ```dart
 Future<void> syncAll({required DateTime now, required ReminderStrings strings}) async {
   final planned = planReminders(now: now, appts: await repos.events.all(), ...);
-  final plannedById = {for (final r in planned) r.id: r};
+  final plannedIds = {for (final r in planned) r.id};
 
-  try {
-    final pending = await notifications.pendingRequests();      // ids currently registered
-    final pendingIds = pending.map((p) => p.id).toSet();
+  final pending = await notifications.pendingRequests();  // the PLUGIN's list, not the OS's
+  final pendingIds = pending.map((p) => p.id).toSet();
 
-    for (final id in pendingIds.difference(plannedById.keys.toSet())) {
-      await notifications.cancel(id);                            // per-id, targeted
+  for (final id in pendingIds.difference(plannedIds)) {
+    await notifications.cancel(id);                       // per-id, targeted — never cancelAll
+  }
+  for (final r in planned) {
+    // EVERY planned reminder, every sync — including ones `pending` already lists.
+    try {
+      await notifications.schedule(id: r.id, ...);
+    } catch (e) {
+      // Per-reminder: one failure costs that reminder, not the whole set.
     }
-    for (final r in planned.where((r) => !pendingIds.contains(r.id))) {
-      await notifications.schedule(id: r.id, ...);               // only what is new
-    }
-  } catch (e, st) {
-    // NEVER leave the pending set empty. Log, surface, retry — do not swallow.
   }
 }
 ```
 
-Reconciling per-id matters for two reasons that a blanket
+**Diff the cancel side only.** `pendingNotificationRequests()` does not query the OS — it returns
+a list the plugin persists in its own `SharedPreferences`
+(`shared_prefs/scheduled_notifications.xml`). It drifts from the real `AlarmManager` state and
+nothing in the plugin notices. Measured on a Moto G06:
+
+```
+plugin store entries : 29
+dumpsys alarm entries: 0
+```
+
+A user tapping **Force stop** (which Android's own battery screen offers, and OEM battery
+managers actively encourage), an OEM task killer, or a boot whose receiver never ran under a
+background restriction all clear the app's `PendingIntent`s while leaving that list intact. Skip
+the re-schedule for anything "already pending" and those reminders are **silently dead forever**
+— nothing about the plugin's own bookkeeping looks wrong.
+
+Re-arming is idempotent: scheduling an existing id replaces the alarm, and does **not** dismiss
+an already-displayed notification. So the unconditional re-schedule costs N alarm writes per
+sync and buys self-healing. Take that trade — a reminder that never fires is the failure mode
+this whole skill exists to prevent.
+
+Verify with the drift scenario, not just a happy-path sync:
+
+```bash
+adb shell am force-stop <pkg>        # clears OS alarms, leaves the plugin's list untouched
+adb shell am start -n <pkg>/.MainActivity
+adb shell dumpsys alarm | grep -c "<pkg>/com.dexterous"   # must return to the full count
+```
+
+Diffing the cancel side per-id matters for two reasons that a blanket
 `cancelAll()`-then-reschedule cannot satisfy:
 
 - **`cancelAll()` dismisses notifications currently in the shade**, not just pending schedules —
@@ -292,10 +322,10 @@ Reconciling per-id matters for two reasons that a blanket
   reschedule loop starts, and `zonedSchedule` throws `exact_alarms_not_permitted` when the
   exact-alarm permission is absent — user-revocable on `minSdk` 31/32 (§1). One throw mid-loop
   leaves the user with **zero** reminders, silently and permanently, re-attempted on every
-  resume. Reconciling only touches what changed, so a failure costs one reminder rather than all
-  of them.
+  resume. Cancelling only what actually disappeared, and scheduling each reminder in its own
+  `try`, means a failure costs one reminder rather than all of them.
 
-It also removes N alarm writes on every resume. Because cancellation is now per-id, make sure you
+Because cancellation is now per-id, make sure you
 *do* cancel the ids that should disappear — deleted entities, deactivated schedules, and **the
 previous profile's reminders in a multi-profile app**, where `syncAll` only ever sees one
 profile's data.
