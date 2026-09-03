@@ -127,8 +127,43 @@ Do not reach for it reflexively. Two costs:
 - **The plugin passes the same PendingIntent as both `showIntent` and `operation`.** SystemUI's
   Quick Settings Alarm tile *sends* `showIntent` on tap, and the terminal call is a generic
   `PendingIntent.send` — so a broadcast PendingIntent gets broadcast. Tapping the alarm tile
-  fires your notification early. Work around it with a patched plugin or your own Kotlin
-  scheduler.
+  fires your notification early.
+
+#### Re-arm the plugin's own alarm instead of patching the plugin
+
+You do not need a fork or a second scheduler. Let the plugin schedule normally, then **look up
+the PendingIntent it created and hand that same one back to `setAlarmClock`** with a show-intent
+of your own:
+
+```kotlin
+// The plugin uses the notification id as the request code and targets its own receiver, and
+// Intent.filterEquals (what PendingIntent matches on) ignores extras — so the same
+// (requestCode, component, flags) triple resolves to the plugin's live PendingIntent, carrying
+// the notification it already serialised. FLAG_NO_CREATE keeps this a lookup: no pending alarm
+// for this id means null, not a new alarm that would fire an empty intent.
+val operation = PendingIntent.getBroadcast(
+    context, id,
+    Intent(context, Class.forName(
+        "com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver")),
+    PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE) ?: return false
+
+// Deliberately an activity: this slot gets *sent*, so a broadcast here is the early-fire bug.
+val show = PendingIntent.getActivity(
+    context, id,
+    context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return false,
+    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+
+alarmManager.setAlarmClock(AlarmManager.AlarmClockInfo(triggerAtMillis, show), operation)
+```
+
+Same operation PendingIntent means AlarmManager **replaces** the plugin's alarm rather than
+adding a second one, so the reminder cannot fire twice. Guard with `canScheduleExactAlarms()`
+*and* catch `SecurityException` — the grant can be revoked between the check and the call — and
+treat every failure as "the plugin's own alarm stands": late beats absent.
+
+**Never promote a repeating reminder.** `matchDateTimeComponents` alarms are re-armed by the
+plugin as each one fires; replacing that with a one-shot alarm clock delivers the next occurrence
+and then silently stops forever. One-shots only.
 
 ## 5. Getting past Do Not Disturb
 
@@ -341,6 +376,13 @@ int _idFor(String key) { var h = 0x811c9dc5; for (final c in key.codeUnits) { h 
 happily emit several alarms for the same moment. One notification listing three items is better
 UX, and it sidesteps both the rate cap and ranker auto-bundling.
 
+The trap is the **payload**. It is what the action buttons write from, so a merged notification
+whose payload names only the first entity logs one and leaves the others looking unanswered.
+Make the payload carry a *list* of targets, keep the tap deep-link reading the first, and keep
+the old single-target form decoding unchanged — reminders scheduled by the previous build are
+still pending in the OS and will fire against the new code. Drop a truncated tail rather than
+guessing at it: a half-read id writes against the wrong entity.
+
 ## 9. Budgets and the rolling horizon
 
 **iOS caps pending notifications at 64.** Don't schedule an unbounded future:
@@ -372,9 +414,28 @@ works", and never show a healthy state until the check actually passes.
 | Battery optimized | `PowerManager.isIgnoringBatteryOptimizations()` | `ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS` |
 | Exact alarms revoked | `AlarmManager.canScheduleExactAlarms()` | `ACTION_REQUEST_SCHEDULE_EXACT_ALARM` |
 | Notifications off | `areNotificationsEnabled()` | `ACTION_APP_NOTIFICATION_SETTINGS` |
+| Channel (or its **group**) muted | `getNotificationChannel(id).importance != IMPORTANCE_NONE` **and** `getNotificationChannelGroup(channel.group)?.isBlocked != true` | `ACTION_CHANNEL_NOTIFICATION_SETTINGS` |
 | DND on now | `getCurrentInterruptionFilter()` | — |
 | DND disallows alarms | `getConsolidatedNotificationPolicy()` → `PRIORITY_CATEGORY_ALARMS` | — |
 | Alarm volume zero (if using alarm audio) | `AudioManager.getStreamVolume(STREAM_ALARM) == 0` | — |
+
+Four rules that decide whether the health screen is trustworthy:
+
+- **Check the channel *group*, not just the channel.** Muting a group leaves every channel inside
+  it still reporting its original importance while nothing is delivered — precisely the silent
+  failure the probe exists to catch.
+- **Probe the channel you actually post on.** If alert styles map to separate channels (they must,
+  since channel behaviour is immutable — §12), only one of them can be the muted one. Reading the
+  wrong id tells a user with a muted alarm channel that everything is fine.
+- **A missing or unanswerable field defaults to *healthy*.** A `MissingPluginException`, an older
+  native side, or iOS must not be able to send the user into Settings over a restriction nobody
+  measured. Absent channel counts as enabled too: it is created on the first reminder, so a fresh
+  install would otherwise be greeted with a warning about a channel that does not exist yet.
+- **Suppress redundant rows.** Do not report a blocked channel when notifications are off
+  entirely, or battery optimisation under a full background restriction — each pair is the same
+  fact told twice, and a list of five warnings is one the user scrolls past. Show the card *only*
+  when something is wrong; a standing "reminders are fine" row is a row nobody reads, and its
+  presence is the whole signal.
 
 **Background restriction is the one that will bite you.** An OEM battery manager sets appop
 `RUN_ANY_IN_BACKGROUND: ignore`; AlarmManager then holds every alarm in a
@@ -408,6 +469,21 @@ Two cautions:
   state, distinct from a live reminder. Etar bounds revival to 24 h and to still-live events;
   copy that instinct, not an unbounded replay.
 
+**A notification cannot be rewritten once the OS holds it.** It is serialised at schedule time and
+nothing of yours runs when it fires. So a reminder that might be delivered late has to say when it
+was *due* in its own body from the moment it is scheduled — "Omeprazole · due 20:00", not
+"Omeprazole". There is no hook in which to add that later.
+
+The same absence of a fire-time hook governs a **re-nag** (a second, dismissible nudge at
+`min(10 min, ¼ of the gap to the next occurrence)`, which beats a sticky `setOngoing` one nobody
+can dismiss). "Only if still unacknowledged" cannot be evaluated when it fires, so enforce it from
+the planning end: plan a nudge only for an item with no answer logged, and **re-plan on every path
+that writes an answer** — in-app, the foreground notification action, and the background action
+isolate. Otherwise the nudge already armed in the OS fires after the user has answered.
+
+Budget for it: a nudge doubles the alarms per item, so a fixed alarm cap covers roughly half the
+horizon it did before (§9).
+
 ## 12. Gotchas
 
 - **`initializeTimeZones()` + `setLocalLocation`** before `zonedSchedule`, or it throws / fires in
@@ -429,6 +505,10 @@ Two cautions:
 - **Android actions per-notification, iOS actions in a category** — supply both.
 - **Cold-start tap** comes from `getNotificationAppLaunchDetails`, not the runtime stream.
 - **Share the write logic** between foreground and background action paths.
+- **A scheduled notification's text is frozen** — put the due time in the body up front (§11).
+- **Re-plan after every answer**, or an already-armed nudge fires at someone who answered (§11).
+- **A coalesced notification needs a multi-target payload**, or its action button answers for one
+  item and abandons the rest (§8).
 
 ## 13. Diagnosing a real device
 
