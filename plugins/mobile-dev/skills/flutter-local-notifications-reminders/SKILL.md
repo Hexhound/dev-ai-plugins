@@ -487,6 +487,17 @@ answers "still pending" every time, defeating the gate silently. Read the pendin
 before the reconcile's cancel loop**; cancelling a spent id erases the evidence. Model both halves
 in the fake sink your tests use: arming adds an id, firing removes it.
 
+**Post the recovery under its own id — never the spent alarm's.** The plugin's `cancel(id)` is
+`AlarmManager.cancel` *and* `NotificationManager.cancel(id)`. The sync that posts a recovered
+item also cancels the spent alarm it stands in for, so a recovery sharing that id is shown and
+dismissed in the same sync — invisible on a device, and invisible to a suite whose fake `cancel`
+only forgets the alarm. Give the fake sink a `visible` set that `showNow` adds to and `cancel`
+removes from, and assert the recovery is still visible when the sync returns. (The old rationale
+for sharing the id — "a late-landing alarm replaces it instead of stacking" — is moot: that alarm
+is cancelled in the same sync.) If the id also carries a mode or style, ask the pending set about
+the armed id under **every** value of it: switching modes re-syncs under the new one, and a
+still-pending old-mode alarm read under the new id looks delivered, is dropped, then cancelled.
+
 Two cautions:
 
 - **A WorkManager periodic worker is not an independent second path.** Google's
@@ -544,6 +555,8 @@ horizon it did before (§9).
   pending list is the only witness (§11).
 - **A coalesced notification needs a multi-target payload**, or its action button answers for one
   item and abandons the rest (§8).
+- **`cancel(id)` dismisses as well as disarms** — a recovery posted under the spent alarm's id is
+  wiped by the same sync. Own id, and a fake sink that models the dismissal (§11).
 
 ## 13. Diagnosing a real device
 
