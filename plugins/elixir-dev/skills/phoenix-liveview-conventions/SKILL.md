@@ -84,6 +84,10 @@ end
 - **Tests:** context functions get unit tests; LiveViews get `Phoenix.LiveViewTest`
   interaction tests asserting the acceptance criteria, not implementation details.
 - Follow the `code-comments` guideline (from `coding-guidelines`) — comment-light.
+- **`@moduledoc` / `@doc` say what, not why.** One to three sentences on what the module
+  does, readable with no prior context; one sentence per function on what it does and
+  returns. No design rationale, no other module's mechanism, no performance history —
+  see the docs section of `code-comments`.
 
 ## Out of scope
 

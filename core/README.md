@@ -17,5 +17,6 @@ directory is the human- and cross-tool-facing source of truth; the sync directio
 ```
 core/
   guidelines/
-    flutter.md      # Flutter/Dart conventions (mirrored by mobile-dev's flutter-guidelines skill)
+    code-comments.md  # comments and module/function docs (mirrored by coding-guidelines's code-comments skill)
+    flutter.md        # Flutter/Dart conventions (mirrored by mobile-dev's flutter-guidelines skill)
 ```

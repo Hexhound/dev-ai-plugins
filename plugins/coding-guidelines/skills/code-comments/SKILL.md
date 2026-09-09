@@ -1,6 +1,6 @@
 ---
 name: code-comments
-description: Use when writing, editing, or reviewing code in ANY language — governs when a comment earns its place and forbids obvious, cross-referencing, or history-narrating comments.
+description: Use when writing, editing, or reviewing code in ANY language — governs when a comment earns its place, what a module or function doc may say, and forbids obvious, cross-referencing, or history-narrating comments.
 ---
 
 # Code Comments
@@ -46,6 +46,40 @@ genuine local gotcha is fine:
 
 That earns its place: the *why* is invisible in the code, and it's true from this file
 alone. Everything else, leave out.
+
+---
+## Module and function docs
+
+The same rule applies to a module's doc block (`@moduledoc`, a class or package
+docstring) and a function's doc (`@doc`, a docstring).
+
+- A module doc says **what the module does** in one to three sentences a reader with no
+  prior context can follow, plus what calls it or what it calls only when the name
+  doesn't already say so.
+- A function doc is one sentence on what it does and returns.
+- **Never** put design rationale, trade-offs, rejected alternatives, another module's
+  mechanism, or performance war stories in a doc. Rationale goes in the commit message or
+  PR description; a mechanism is explained once, in the module that owns it, and named
+  elsewhere; a fact a line can't be changed without is a one-line comment on that line.
+
+```
+# do
+@moduledoc """
+Deletes what replaced or failed ingest runs of one source left behind: their
+fact rows, orphaned regions, and the run records. Runs at the end of every ingest.
+"""
+
+# don't
+@moduledoc """
+Physically removes what an ingest has already made invisible ... Runs at the end of
+each ingest job, still under the lock, so no run is in flight — which is what makes
+"not active" the same as "stale" ... one DELETE of that size bloats WAL ...
+"""
+```
+
+Pre-write test: would a newcomer opening only this file know what it does from the
+first sentence? If the doc needs the rest of the design to make sense, cut until it
+doesn't.
 
 ---
 
