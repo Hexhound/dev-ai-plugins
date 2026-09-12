@@ -14,7 +14,7 @@ feature that genuinely splits into independent subtasks.
 3. **Ask me the concurrency cap** — how many builder+reviewer duos may run in parallel —
    and treat it as a hard ceiling (batch, don't exceed).
 4. Run each subtask in its own git worktree: builder implements test-first to green, then a
-   fresh-context `code-reviewer` (Sonnet) reviews that subtask's diff.
+   fresh-context `code-reviewer` (model selected per `review-gate`) reviews that subtask's diff.
 5. Integrate the green worktrees **sequentially**, verifying after each merge, then run the
    final review-gate and clean up worktrees.
 

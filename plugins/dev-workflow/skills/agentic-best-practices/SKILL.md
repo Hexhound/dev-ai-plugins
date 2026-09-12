@@ -14,7 +14,9 @@ cost 3–10x more tokens and degrade fidelity at each handoff.
 1. **One session does the work. One *fresh* subagent reviews it.**
    Never spawn a fleet. The value of review comes from the reviewer's *isolated context*
    (it can't rationalize code it just wrote), not from more agents. Use the
-   `code-reviewer` subagent (Sonnet) as the second gate.
+   `code-reviewer` subagent as the second gate: Sonnet on Claude, or explicitly
+   `gpt-5.6-sol` with medium reasoning and `fork_turns: "none"` on Codex. Follow the
+   `review-gate` skill's model-selection fallback if that model is unavailable.
 
 2. **The primary gate is a script, not a model — in two tiers.**
    A cheap per-turn check (`./.claude/verify-fast`, e.g. compile) runs on turn-end via a

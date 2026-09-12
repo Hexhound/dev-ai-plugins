@@ -1,12 +1,14 @@
 ---
-description: Run the review gate on the current change — deterministic verify, then a fresh-context Sonnet reviewer, escalating to specialists only for high-risk diffs.
+description: Run the review gate on the current change — deterministic verify, then a fresh-context Sonnet-class reviewer, escalating to specialists only for high-risk diffs.
 argument-hint: [optional: acceptance criteria / invariant]
 ---
 
 Invoke the **review-gate** skill on the current uncommitted change.
 
 1. **Gate 1:** run `./.claude/verify`. If it fails, stop and fix before reviewing.
-2. **Gate 2:** spawn the `code-reviewer` subagent (Sonnet). Give it ONLY the `git diff`,
+2. **Gate 2:** spawn the `code-reviewer` subagent using the skill's model selection
+   (Sonnet on Claude; explicit `gpt-5.6-sol`, medium reasoning, `fork_turns: "none"`
+   on Codex). Give it ONLY the `git diff`,
    the acceptance criteria/invariant (`$ARGUMENTS` if provided, else ask), and the
    project's guidelines. Do NOT give it prior reasoning. Present its findings; triage with
    me; treat over-reported nitpicks skeptically.

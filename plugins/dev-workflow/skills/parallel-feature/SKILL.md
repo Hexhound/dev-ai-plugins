@@ -37,7 +37,7 @@ If unsure, default to the single-session flow. Do not fan out on a hunch.
       `git worktree add ../<repo>-<subtask> -b feat/<subtask>`.
    b. **Builder** implements the subtask test-first in that worktree, running only the
       **fast** check (compile + that subtask's tests) while iterating — not the whole suite.
-   c. **Reviewer** (`code-reviewer`, Sonnet, fresh context) reviews that subtask's diff
+   c. **Reviewer** (`code-reviewer`, fresh context, model selected per `review-gate`) reviews that subtask's diff
       against its acceptance criteria. Builder fixes real findings; re-run the fast check.
 4. **Integrate (single session, sequential — NOT parallel).** Merge each green worktree
    back in turn, resolving conflicts, running the **full** `./.claude/verify` after each

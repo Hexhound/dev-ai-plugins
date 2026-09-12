@@ -35,8 +35,16 @@ script → no gate.
 
 ## Gate 2 — Fresh-context review (ONE subagent, not a fleet)
 
-Spawn the `code-reviewer` subagent (Sonnet — review needs isolated context, not Opus
-horsepower). Give it **only**:
+Spawn the `code-reviewer` subagent with fresh context using a Sonnet-class model:
+
+- **Claude:** use `sonnet`.
+- **Codex:** explicitly set `model: "gpt-5.6-sol"`, `reasoning_effort: "medium"`,
+  and `fork_turns: "none"` when spawning the reviewer. Do not omit the model override
+  and silently inherit the builder's model.
+- **If unavailable:** choose an available model suited to code review at a similar
+  capability/cost tier, preserve fresh context, and disclose the actual model used.
+
+Give it **only**:
 
 - the diff (`git diff` of the change under review)
 - the acceptance criteria / invariant for this change
