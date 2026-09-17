@@ -60,10 +60,18 @@ file; it keeps the module free of markup.
 10. **All UI text goes through the project's i18n module.** No literal user-facing strings in
     templates.
 11. **`@moduledoc` / `@doc` say what, not why** (see `code-comments` in `coding-guidelines`).
-12. **Theming is tokens only.** Semantic CSS custom properties defined once under
+12. **Theming is tokens only — always.** Semantic CSS custom properties defined once under
     `[data-theme="…"]` on `<html>`; components reference tokens, never literal colours.
-    `data-theme` comes from a layout prop with a default. This is what makes a second theme a
-    one-block addition later. Grep for hex/oklch outside the token file to enforce it.
+    `data-theme` comes from a layout prop with a default. Grep for hex/oklch outside the
+    token file to enforce it.
+13. **Dark mode is a per-project decision — ask once, then follow it.** Before the first UI
+    change in a project, check memory and the project `AGENTS.md` for a recorded theme
+    decision. If there is none, ask the user: *single theme for now (tokens wired so a
+    second theme is a one-block addition later), or dark mode from the start?* Record the
+    answer in memory and in `AGENTS.md`, then follow it. With dark mode: every UI change is
+    verified in both themes before it is called done. Without it: never add a toggle, a
+    `prefers-color-scheme` rule, or a second theme block on your own initiative.
+
 
 ## Dev-only pages
 
