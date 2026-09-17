@@ -1,12 +1,12 @@
 ---
 name: elixir-module-structure
-description: Use when creating a NEW LiveView, LiveComponent, or GenServer in this Elixir workspace — enforces splitting each into its mandated files (LiveView/LiveComponent → shell / impl / ui / state; GenServer → public API / impl / server / state) and deciding when a stateful widget should become a LiveComponent.
+description: Use when creating a NEW LiveView, LiveComponent, GenServer, Hologram Page, or Hologram Component in this Elixir workspace — enforces splitting each into its mandated files (LiveView/LiveComponent → shell / impl / ui / state; GenServer → public API / impl / server / state; Hologram Page/Component → shell / .holo / server / client / components) and deciding when a stateful widget should become a LiveComponent or a stateful Hologram Component.
 ---
 
 # Elixir Module Structure
 
-When you create a **new LiveView**, a **new LiveComponent**, or a **new GenServer**, do not
-write it as a single monolithic file. Split it into the mandated files below. This is a hard
+When you create a **new LiveView**, a **new LiveComponent**, a **new GenServer**, a **new
+Hologram Page**, or a **new Hologram Component**, do not write it as a single monolithic file. Split it into the mandated files below. This is a hard
 convention for this workspace — follow it whenever the trigger matches; if a specific module
 genuinely shouldn't be split, say so and ask before collapsing it.
 
@@ -63,10 +63,44 @@ For a GenServer `MyApp.Thing`, split into:
 | `server.ex` | The `GenServer` callbacks (`init/1`, `handle_call/3`, `handle_cast/2`, `handle_info/2`, `terminate/2`). Thin — each callback delegates to `impl` and updates `state`. |
 | `state.ex` | The state struct and pure transitions over it. Keep it simple and serializable. |
 
+## Hologram Page → shell + template + server + client (+ components)
+
+For a page `MyApp.Pages.Admin.Releases`, create a directory for it. Unlike the LiveView split,
+this one follows the **runtime boundary**: one file is server-only, one compiles to JavaScript.
+
+| File | Holds |
+|------|-------|
+| `releases.ex` (the shell) | `use Hologram.Page`, `route`, `layout`, `param`s, middleware attachments, `init/3`, `action/3`, `command/3`. Thin — each clause is one call into `server` or `client`. **`action/3` and `command/3` both stay here**: Hologram splits the module by function, so do not move them out. |
+| `releases.holo` | The colocated template. Hologram resolves `Path.rootname(module_path) <> ".holo"`; the shell then has no `template/0`. |
+| `server.ex` | Server-only logic that `init/3` and `command/3` delegate to. Ash and every side effect live here. Returns plain, render-safe data. |
+| `client.ex` | The client-state shape (a typespec of plain maps) and the pure transitions `action/3` delegates to. **Compiled to JavaScript** — supported-Elixir subset only, no side effects, no Ash, no structs with a lifecycle. |
+| `components/` | `Hologram.Component` modules used by this page (each with its own `.holo`). This is what the LiveView `ui.ex` becomes. |
+
+`server.ex` here is a **homonym** of the GenServer split's `server.ex` (the callbacks file). They
+are different module kinds and never share a directory; do not conflate them when reading
+both tables.
+
+## Hologram Component → same split, scaled to what it owns
+
+| File | Holds |
+|------|-------|
+| `thing.ex` (the shell) | `use Hologram.Component`, `prop`s, and — only if it owns state — `init/2` (client) or `init/3` (server), `action/3`, `command/3`. |
+| `thing.holo` | The colocated template. |
+| `server.ex` / `client.ex` | Only when the component owns state or server work. A stateless component is **shell + `.holo` and nothing else**. |
+
+## When should a Hologram Component own state?
+
+Same judgement as a LiveComponent: extract and give it state when **the state naturally
+belongs to the widget, not the page** — a live-updating panel, an editor, a filter bar that
+must survive re-renders of its parent. Keep state in the page when it is really the page's.
+Stateful components deliberately, not by default.
+
 ## Why this split
 
 Each file has one reason to change; callbacks stay thin and testable; business logic
-(`impl`) is unit-testable without a socket or a running process. Match the surrounding
+(`impl`, or `server`/`client` for Hologram) is unit-testable without a socket, a running
+process, or the Hologram runtime. For Hologram the split additionally makes the JavaScript
+boundary visible in the file name. Match the surrounding
 codebase's exact naming and namespacing for these files.
 
 ## Extending

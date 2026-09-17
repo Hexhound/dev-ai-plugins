@@ -22,7 +22,7 @@
     {
       "name": "elixir-dev",
       "source": "./plugins/elixir-dev",
-      "description": "Elixir / Phoenix / LiveView backend development: stack conventions plus the verify-gate wiring (mix precommit) the dev-workflow plugin enforces."
+      "description": "Elixir / Phoenix / LiveView / Hologram backend development: stack conventions plus the verify-gate wiring (mix precommit) the dev-workflow plugin enforces."
     },
     {
       "name": "mobile-dev",
