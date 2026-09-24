@@ -30,6 +30,11 @@
       "description": "Flutter-based iOS & Android app development: skills, code guidelines, and MCP servers."
     },
     {
+      "name": "ui-design",
+      "source": "./plugins/ui-design",
+      "description": "Framework-neutral UI design workflow: design screens in reviewed rounds with Claude Design or Open Design (wireframe, then look, then other sizes), then port the locked mockups into the real app."
+    },
+    {
       "name": "roam-dev",
       "source": {
         "source": "github",

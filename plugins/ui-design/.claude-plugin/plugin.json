@@ -1,0 +1,9 @@
+{
+  "name": "ui-design",
+  "description": "Framework-neutral UI design workflow: design screens in reviewed rounds with Claude Design or Open Design (wireframe, then look, then other sizes), then port the locked mockups into the real app.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Eduardo Barreto Alexandre",
+    "email": "claude@sezdm.com"
+  }
+}
