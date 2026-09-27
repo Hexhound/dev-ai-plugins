@@ -43,6 +43,19 @@ WebCrypto, and renders. Crucially:
 https://loader.example.app/#<base64url(JSON({f: driveFileId, k: key}))>
 ```
 
+The loader unzips in memory, turns every entry into a blob URL, and renders the archive's
+viewer page in an iframe. **The loader is a contract with every archive already shared** —
+links live for months and the zip inside can't be rewritten:
+
+- Find the viewer page tolerantly: `index.html` if present (older archives), else the single
+  `.html` at the archive root. Never hard-code the entry name.
+- Change the loader first: **deploy it before the app release** that changes the archive
+  layout, or new shares won't open.
+- Anything the viewer asks of the loader over `postMessage` (e.g. "download the whole
+  archive") needs a fallback for old viewers that don't send the new field — e.g. the
+  `filename` to save as: use it only if it's a non-empty string ending in `.zip`, stripped of
+  `/` and `\`, else a fixed default.
+
 ## 2. Dependencies
 
 ```yaml
@@ -78,9 +91,9 @@ The loader decrypts with:
 
 ## 4. The self-contained viewer bundle
 
-Package the data as a zip: a static `viewer.html` (bundled asset) + the decrypted attachment
-files under `files/…`. Inject the record data as JSON at a marker in the template — **escape
-`<`** so a title containing `</script>` can't break out:
+Package the data as a zip: a static viewer page (bundled asset) + the decrypted attachment
+files, laid out so a person can browse them (below). Inject the record data as JSON at a
+marker in the template — **escape `<`** so a title containing `</script>` can't break out:
 
 ```dart
 String _injectData(String template, Map<String, Object?> data) =>
@@ -92,6 +105,83 @@ counts). Both the share path and the export path call it — so a record opened 
 renders identically to one opened from a share, minus the encryption. Reading each attachment
 goes through `flutter-encryption-at-rest`'s `readDecrypted`; a missing/corrupt file must
 `continue`, never sink the whole bundle.
+
+**Section toggles are independent, and exclusion is total.** Give each slice its own include
+flag (e.g. history, appointments, medications, people) rather than folding one into another.
+When a slice is excluded, also strip every cross-reference to it from the slices that remain
+(an entry's `personId`, say) — the viewer must never point at data the archive doesn't carry,
+and a dangling id still leaks that the thing exists.
+
+**Ship small previews, not full images, for the viewer's cards.** If the app already caches
+thumbnails, bundle them beside the originals and add a `thumb` path to each file descriptor;
+the viewer uses it for cards/tiles and opens the original only in the lightbox. Otherwise the
+browser decodes every full-resolution page just to draw a 74px tile, and a PDF gets a real
+first-page preview instead of a generic icon.
+
+### Archive layout for people, not the viewer
+
+Many recipients skip the viewer and download the zip. Lay it out for a file manager:
+
+```
+Open me - Knee injury.html                     <- viewer page, localized "Open me", titled
+2026/
+  2026-09-14 - Blood test (3f9a1c2e)/          <- year / local date - title (short id)
+    Blood test - 1.jpg
+    labs.pdf                                   <- user's original name, kept
+_viewer/                                       <- viewer-only assets, out of the way
+  thumbs/<record id>/labs.pdf.thumb.jpg
+  people/<id>.jpg
+```
+
+- **Always append the short id** (first 8 chars) to a record folder, not only on a clash — the
+  name is then unique *and* stable across repeated shares. Only records with at least one
+  bundled file get a folder.
+- **Name the viewer page for what it is** (`Open me - <title>.html`, localized) — a bare
+  `index.html` among the documents says nothing to a person.
+- Keep original file names; derived names are `<title> - N.ext`. Name a thumbnail
+  `<file>.thumb.jpg` (append, don't swap the extension) so `labs.pdf` and `labs.jpg` can't
+  collide.
+- Give "download all" a readable name too (`<App> - <title> - <date>.zip`), injected into the
+  viewer data and passed to the loader (§1).
+
+The sanitizer must stay **readable but safe** — the old `[^A-Za-z0-9._-] → '-'` slug turns
+every accented or CJK title into dashes:
+
+```dart
+static final _illegal = RegExp(r'[\\/:*?"<>|\x00-\x1F\x7F]');   // Windows/macOS/zip-illegal
+static final _reserved = RegExp(r'^(con|prn|aux|nul|com[0-9]|lpt[0-9])$', caseSensitive: false);
+
+static String readableFileName(String raw, {String fallback = 'file'}) {
+  var s = raw.replaceAll(_illegal, ' ').replaceAll(RegExp(r'\s+'), ' ').trim(); // keep case, accents, CJK
+  final runes = s.runes;                                   // cap by runes, never split a code point
+  if (runes.length > 60) s = String.fromCharCodes(runes.take(60));
+  s = s.replaceAll(RegExp(r'^[\s.]+|[\s.]+$'), '');        // Windows drops trailing dots/spaces
+  if (s.isEmpty) return fallback;
+  return _reserved.hasMatch(s.split('.').first) ? '_$s' : s; // CON.pdf, nul.txt …
+}
+
+/// `name`, else `name (2).ext`, `name (3).ext` … — compared case-insensitively, because
+/// Windows and macOS unzip `Labs.pdf` and `labs.pdf` onto the same file.
+static String unique(String name, Set<String> used) {
+  if (used.add(name.toLowerCase())) return name;
+  final dot = name.lastIndexOf('.');
+  final stem = dot > 0 ? name.substring(0, dot) : name, ext = dot > 0 ? name.substring(dot) : '';
+  for (var n = 2; ; n++) { final c = '$stem ($n)$ext'; if (used.add(c.toLowerCase())) return c; }
+}
+```
+
+Sanitize a file name's stem and extension separately so truncation never cuts through `.pdf`.
+
+**The viewer resolves paths two ways.** Inside the loader, paths map to blob URLs. Opened
+straight from an unzipped folder, they are relative URLs — so **percent-encode each segment**,
+or spaces, accents and a stray `#` break every image:
+
+```js
+function fileUrl(path) {
+  if (FILES && FILES[path]) return FILES[path];               // loader: blob URL
+  return path.split("/").map(encodeURIComponent).join("/");  // unzipped: relative URL
+}
+```
 
 ## 5. `prepare` vs. `upload` (size gate before network)
 
@@ -118,7 +208,9 @@ Future<ShareResult> upload({required PreparedShare prepared, required String sha
 ```
 
 `buildZip` (deflate each entry, level 6) is pure-Dart CPU work — run it on `Isolate.run` too so
-the "packaging" spinner doesn't jank.
+the "packaging" spinner doesn't jank. A hand-written zip writer must set **general-purpose flag
+bit 11 (`0x0800`, names are UTF-8)** in both the local and the central-directory header;
+without it Windows Explorer decodes names as CP437 and garbles every non-ASCII title.
 
 ## 6. Revoke, record, manage
 
@@ -131,17 +223,21 @@ the "packaging" spinner doesn't jank.
 ## 7. Export: the same bundle, in the clear
 
 Export is share minus encryption and network: iterate every record set, call the **same
-`buildBundle`**, nest each under its own browsable root folder (`<slug>_<id>/`), add a landing
-`index.html` (a static asset with the list injected at `/*__DATA__*/`), and zip it. The result
-opens straight from a file manager — the whole point is a portable copy the user owns with no
-lock-in. Offer it through the OS "save-as" dialog.
+`buildBundle`**, nest each under its own readable folder (`<title> (<short id>)/`, through the
+same sanitizer + `unique`), add a landing page (`Open me - <localized export title>.html`, a
+static asset with the list injected at `/*__DATA__*/`), and zip it. The result opens straight
+from a file manager — the whole point is a portable copy the user owns with no lock-in. Offer
+it through the OS "save-as" dialog.
 
 ```dart
 for (final set in sets) {
-  final bundle = await _share.buildBundle(set: set, isExport: true, ...);
-  for (final e in bundle.entries) entries.add(ShareZipEntry('${folder(set)}/${e.name}', e.bytes));
+  final bundle = await _share.buildBundle(set: set, isExport: true, ...); // returns its htmlName
+  final folder = ArchivePaths.unique(ArchivePaths.setFolder(set), usedFolders);
+  for (final e in bundle.entries) entries.add(ShareZipEntry('$folder/${e.name}', e.bytes));
+  // an href is a URL, not a path: encode, since names carry spaces and non-ASCII
+  cards.add({'href': '${Uri.encodeComponent(folder)}/${Uri.encodeComponent(bundle.htmlName)}', ...});
 }
-entries.insert(0, ShareZipEntry('index.html', utf8.encode(_injectData(landingTemplate, listData))));
+entries.insert(0, ShareZipEntry(openMeName, utf8.encode(_injectData(landingTemplate, listData))));
 return ExportArchive(zipBytes: ShareService.buildZip(entries), ...);
 ```
 
@@ -158,6 +254,17 @@ the exact figures come from the real build.
   multi-MB archives; pass raw key bytes across (a `SecretKey` can't cross the boundary).
 - **Escape `<` when injecting JSON** into the HTML template (XSS / script-breakout).
 - **A bad attachment must `continue`**, not throw — one corrupt page shouldn't sink the bundle.
+- **Lay the zip out for people** — dated, titled folders with an always-present short id,
+  viewer assets in `_viewer/`, an "Open me" page; never `index.html` + `files/<uuid>/`.
+- **Readable, not slugged, names** — keep Unicode; strip Windows-illegal chars and reserved
+  device names; cap by runes; dedupe case-insensitively as `name (2).ext`.
+- **Set the zip UTF-8 name flag (bit 11)** in local and central headers, or Windows garbles
+  non-ASCII names.
+- **Percent-encode per segment** when the viewer or landing page turns a zip path into a
+  relative URL.
+- **The loader must open every archive ever shared** — find the entry page tolerantly, deploy
+  the loader before the app, and give every new `postMessage` field a fallback.
+- **Excluding a section drops its cross-references** from the rest of the data.
 - **Split `prepare` (offline, sized) from `upload` (network)** so the user confirms big uploads.
 - **Revoke by deleting the file**; record shares in a table to manage/re-copy/revoke them.
 - **Export is unencrypted by design** — it's the user's own copy; don't add friction, but do
