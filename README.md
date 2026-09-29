@@ -11,6 +11,7 @@ Not intended for public distribution.
 | `dev-workflow` | Provider- and language-neutral agentic workflow: feature/refactor/bugfix playbooks, a fresh-context reviewer subagent, and a deterministic verify gate |
 | `elixir-dev` | Elixir / Phoenix / LiveView backend: stack conventions + the `mix precommit` verify-gate wiring `dev-workflow` enforces |
 | `mobile-dev` | Flutter-based iOS & Android app development: skills, code guidelines, MCP servers |
+| `promo-video` | Polished promo / ad videos of desktop, web and mobile apps: scripted real-app capture, Remotion composition, beat-synced CC BY music, critic-reviewed storyboards |
 | `roam-dev` | Building on roam-sync: E2E-encrypted offline-first multi-device sync, LAN pairing, nearby sharing |
 
 Unlike `mobile-dev`, `roam-dev` is **not** vendored here — it lives in the
@@ -75,6 +76,18 @@ chmod +x .claude/verify
 
 `dev-workflow` is stack-agnostic — install it alone (no `.claude/verify`, no gate) or pair
 it with any language pack. Its Stop hook needs `jq` on PATH; it fails open without it.
+
+#### Promo videos (any app)
+
+```
+/plugin install promo-video@dev-ai-plugins
+```
+
+Then `/promo-video:promo-video <app dir>`. Add `promo-video-deps` to the app's devenv (see
+[Dependencies](#dependencies-nix-flake)) — it brings node, chromium, ffmpeg, aubio, imagemagick
+and a prebuilt Remotion + Playwright `node_modules` (Remotion's compositor patched for NixOS),
+so promo projects need no `npm install`. Remotion is free for individuals and companies of
+up to 3 people; larger companies need a Remotion company licence.
 
 ## Layout
 

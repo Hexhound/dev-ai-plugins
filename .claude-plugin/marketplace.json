@@ -41,6 +41,11 @@
         "repo": "Hexhound/roam"
       },
       "description": "Build on roam-sync: E2E-encrypted offline-first sync across a user's own devices (P2P + zero-knowledge relay), LAN pairing, and one-shot nearby sharing."
+    },
+    {
+      "name": "promo-video",
+      "source": "./plugins/promo-video",
+      "description": "Polished product promo / ad videos for desktop, web and mobile apps: scripted real-app capture, Remotion composition with directed camera and text, beat-synced royalty-free music, and a critic agent that reviews the storyboard and the render."
     }
   ]
 }

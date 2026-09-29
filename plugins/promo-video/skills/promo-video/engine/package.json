@@ -1,0 +1,8 @@
+{
+  "name": "promo",
+  "private": true,
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "still": "remotion still src/index.ts Promo"
+  }
+}
