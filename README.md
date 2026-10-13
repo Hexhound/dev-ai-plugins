@@ -13,6 +13,7 @@ Not intended for public distribution.
 | `mobile-dev` | Flutter-based iOS & Android app development: skills, code guidelines, MCP servers |
 | `promo-video` | Polished promo / ad videos of desktop, web and mobile apps: scripted real-app capture, Remotion composition, beat-synced CC BY music, critic-reviewed storyboards |
 | `roam-dev` | Building on roam-sync: E2E-encrypted offline-first multi-device sync, LAN pairing, nearby sharing |
+| `asset-optimize` | Make heavy 3D models game-ready in Blender: triangle-budget variants (all from 40k to 1k, or a specific count) saved one .blend each, with the original material and/or an unlit albedo look |
 
 Unlike `mobile-dev`, `roam-dev` is **not** vendored here — it lives in the
 `Hexhound/roam` repo and is referenced by a `github` source, so the skills version
@@ -88,6 +89,18 @@ Then `/promo-video:promo-video <app dir>`. Add `promo-video-deps` to the app's d
 and a prebuilt Remotion + Playwright `node_modules` (Remotion's compositor patched for NixOS),
 so promo projects need no `npm install`. Remotion is free for individuals and companies of
 up to 3 people; larger companies need a Remotion company licence.
+
+#### Optimizing 3D models for games (any machine)
+
+```
+/plugin install asset-optimize@dev-ai-plugins
+```
+
+Then `/asset-optimize:model-variants <model file> <output dir>` asks whether you want every
+triangle budget (40k, 20k, 12k, 8k, 5k, 2.5k, 1k) or a specific count, and whether you want
+the original material, an unlit albedo material (the texture as painted), or both. It saves
+one .blend per variant plus a labelled preview sheet. It runs a headless Blender: the one on
+PATH (`asset-optimize-deps` provides it) or `nix run nixpkgs#blender`.
 
 ## Layout
 

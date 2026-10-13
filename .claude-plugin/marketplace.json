@@ -46,6 +46,11 @@
       "name": "promo-video",
       "source": "./plugins/promo-video",
       "description": "Polished product promo / ad videos for desktop, web and mobile apps: scripted real-app capture, Remotion composition with directed camera and text, beat-synced royalty-free music, and a critic agent that reviews the storyboard and the render."
+    },
+    {
+      "name": "asset-optimize",
+      "source": "./plugins/asset-optimize",
+      "description": "Make heavy 3D models game-ready in Blender: triangle-budget variants (decimated with UV seams kept) saved one .blend each, with the original material or an unlit albedo look that shows the texture as painted."
     }
   ]
 }
