@@ -13,6 +13,7 @@ Not intended for public distribution.
 | `mobile-dev` | Flutter-based iOS & Android app development: skills, code guidelines, MCP servers |
 | `promo-video` | Polished promo / ad videos of desktop, web and mobile apps: scripted real-app capture, Remotion composition, beat-synced CC BY music, critic-reviewed storyboards |
 | `roam-dev` | Building on roam-sync: E2E-encrypted offline-first multi-device sync, LAN pairing, nearby sharing |
+| `asset-extract` | 3D models out of web pages as files: from a Zen/Firefox tab's disk cache (no browser automation), unpacked for Blender, with textures and a preview; or generated on hi3d.ai from an image (headless chromium, throwaway account) |
 | `asset-optimize` | Make heavy 3D models game-ready in Blender: triangle-budget variants (all from 40k to 1k, or a specific count) saved one .blend each, with the original material and/or an unlit albedo look |
 
 Unlike `mobile-dev`, `roam-dev` is **not** vendored here — it lives in the
@@ -89,6 +90,24 @@ Then `/promo-video:promo-video <app dir>`. Add `promo-video-deps` to the app's d
 and a prebuilt Remotion + Playwright `node_modules` (Remotion's compositor patched for NixOS),
 so promo projects need no `npm install`. Remotion is free for individuals and companies of
 up to 3 people; larger companies need a Remotion company licence.
+
+#### Extracting assets from the browser (any machine)
+
+```
+/plugin install asset-extract@dev-ai-plugins
+```
+
+Then `/asset-extract:extract-3d-model <tab or site> <where to save>` pulls the 3D model a
+tab is showing (Tripo, Hi3D, product viewers, ...) out of a Zen/Firefox-family profile's
+disk cache. It never drives the browser. Its script runs from `asset-extract-deps` when
+that's on PATH, and otherwise builds the same deps (python + zstandard/brotli/trimesh,
+gltfpack) with nix-shell on first use.
+
+`/asset-extract:generate-hi3d-model <image> <where to save>` generates a model on hi3d.ai
+instead: it signs up a throwaway account (via a mail.tm inbox), uploads the image in a
+headless chromium, waits ~10 min and saves the GLB the site's viewer loads, plus a
+metadata file and a screenshot. It needs node, chromium and a prebuilt `playwright-core`,
+also in `asset-extract-deps`.
 
 #### Optimizing 3D models for games (any machine)
 

@@ -1,0 +1,9 @@
+{
+  "name": "asset-extract",
+  "description": "Get 3D models out of web pages as files: from a Zen/Firefox tab's disk cache without touching the browser (unpacked for Blender, with textures and a preview), or by generating one on hi3d.ai from an image and saving the GLB its viewer loads.",
+  "version": "0.2.0",
+  "author": {
+    "name": "Eduardo Barreto Alexandre",
+    "email": "claude@sezdm.com"
+  }
+}

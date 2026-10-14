@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Runs browser_models.py with its deps: the current PATH if it already has them (the
+# `asset-extract-deps` flake package), otherwise a nix-shell built from the plugin's deps.nix.
+set -euo pipefail
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+script="$here/browser_models.py"
+if python3 -c 'import zstandard, brotli, numpy, PIL, trimesh' 2>/dev/null && command -v gltfpack >/dev/null; then
+  exec python3 "$script" "$@"
+fi
+deps=$(realpath "$here/../../../nix/deps.nix")
+exec nix-shell -E "with import <nixpkgs> {}; mkShell { packages = import $deps pkgs; }" \
+  --run "python3 $(printf '%q' "$script") $(printf '%q ' "$@")"
