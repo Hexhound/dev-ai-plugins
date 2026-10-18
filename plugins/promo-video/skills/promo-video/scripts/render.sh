@@ -2,8 +2,7 @@
 # Renders the composition as an image sequence, encodes H.264 and muxes the music section.
 # Usage: render.sh <promo/video> <track.mp3|-> <music.json> <out.mp4> [fadeOutSeconds]
 set -euo pipefail
-# (chrome-headless-shell, not chromium: see engine/remotion.config.ts)
-export CHROMIUM=${CHROMIUM:-$(command -v chrome-headless-shell)}
+. "$(dirname "$0")/browser.sh"
 video=$1 track=$2 music=$3 out=$(realpath -m "$4") fade=${5:-}
 seq=$video/out/seq
 rm -rf "$seq"

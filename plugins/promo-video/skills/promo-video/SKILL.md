@@ -128,7 +128,11 @@ picks it up from `CHROMIUM`, and the scripts default to it). Plain `chromium` (t
 headless mode) now and then screenshots a frame before all of it is drawn — single frames
 with blank white tiles, more of them the busier the machine — and renders at half the
 speed. Two renders of the same frames with headless-shell are identical; that is the test
-if you ever doubt the browser.
+if you ever doubt the browser. Remotion also starts it with `--disable-dev-shm-usage`, which
+puts its shared memory in files under `TMPDIR`: on a disk that is ~15 MB/s a tab and the
+render ends up waiting on the disk (watch for high iowait). `scripts/browser.sh` gives the
+browser alone a `TMPDIR` in `/dev/shm` — not Remotion itself, whose bundle copies the whole
+`public/` dir and would fill the RAM.
 
 1. **Draft first.** While the user is still reviewing, render half size and light
    (`--scale=0.5`, CRF ≈ 26) and deliver that; do the full render only after their OK.
