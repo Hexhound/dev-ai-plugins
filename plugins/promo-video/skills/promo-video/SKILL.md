@@ -1,6 +1,6 @@
 ---
 name: promo-video
-description: Make a polished 30–45 s product promo / ad video for a desktop, web or mobile app — real captured app footage driven by a script, composed in Remotion with camera moves, text treatments and beat-synced royalty-free music. Storyboard reviewed by a critic agent before anything is captured. Use when asked for a promo, ad, launch or trailer video of an app.
+description: Make a polished 30–45 s product promo / ad video for a desktop, web or mobile app — real captured app footage driven by a script, composed in Remotion with camera moves, text treatments and beat-synced royalty-free music. Storyboard reviewed by a critic agent before anything is captured. Also narrated how-to / tutorial videos of app features from the same footage pipeline. Use when asked for a promo, ad, launch, trailer or tutorial video of an app.
 user-invocable: true
 ---
 
@@ -19,7 +19,9 @@ Split of responsibilities:
 
 Read `references/craft.md` before writing anything. It is the standard the critic grades
 against. `examples/omaphoto/` is one worked promo — read it for technique, never copy its
-look.
+look. For **tutorials** (narrated how-tos: one feature, the narrator says what to tap,
+captions, rings on what to look at) read `references/tutorials.md` too: there the voice
+sets the pace instead of the beat, and its checklist is what the owner will review.
 
 Everything lives in the app repo under `promo/`:
 
@@ -121,10 +123,30 @@ QA loop — never skip:
 
 ## PHASE 6 — Render + deliver
 
-`scripts/render.sh promo/video promo/music/<track>.mp3 <music.json> promo/out/<name>.mp4`
-renders an image sequence, encodes H.264, and muxes the music section with fades,
-normalized to −14 LUFS. Make a contact sheet of the final file and look at it. Deliver
-the path, length, the attribution line(s) to put in the post, and what you didn't
+Render with **`chrome-headless-shell`** (in the deps; the engine's `remotion.config.ts`
+picks it up from `CHROMIUM`, and the scripts default to it). Plain `chromium` (the new
+headless mode) now and then screenshots a frame before all of it is drawn — single frames
+with blank white tiles, more of them the busier the machine — and renders at half the
+speed. Two renders of the same frames with headless-shell are identical; that is the test
+if you ever doubt the browser.
+
+1. **Draft first.** While the user is still reviewing, render half size and light
+   (`--scale=0.5`, CRF ≈ 26) and deliver that; do the full render only after their OK.
+   Every revision round goes through a draft.
+2. **Use the machine.** Several videos render side by side, each its own `remotion render`
+   (lanes), concurrency ≈ cores ÷ lanes; check `nproc` and the load first. A tab can hang
+   under load: stop a render that writes no frame for a few minutes and render the missing
+   frames one by one rather than starting over.
+3. `scripts/render.sh promo/video promo/music/<track>.mp3 <music.json> promo/out/<name>.mp4`
+   renders an image sequence, encodes H.264 (converted to BT.709 limited range and tagged
+   so — Chromium's JPEGs are BT.601 full range, and untagged they play with crushed blacks
+   and clipped whites), and muxes the music section with fades, normalized to −14 LUFS.
+4. **QA the file, not the plan.** Make a contact sheet of the final file and look at it,
+   *and* scan every frame for single-frame glitches (a frame far from both neighbours while
+   they agree) — a sheet samples one frame in hundreds and misses them. Play every
+   transition frame by frame.
+
+Deliver the path, length, the attribution line(s) to put in the post, and what you didn't
 verify (you can't hear the mix).
 
 ## Gotchas
@@ -139,3 +161,11 @@ verify (you can't hear the mix).
   story order.
 - Heavy motion blur and big zoom-follow amplify each other — keep blur subtle and the
   follow track well smoothed; check stills of fast moments.
+- Time-dilated capture slows animations but not timers: a caret (or any blink) flickers.
+  Hold it steady in the capture build (tutorials.md §4).
+- The device frame's camera hole must line up with the screen's cutout — emulators often
+  draw theirs off-centre; look at a still of the bare phone.
+- Driving a render host with `ssh host bash -s <<'EOF' … EOF`: ffmpeg reads stdin and eats
+  the rest of the script. Use `ffmpeg -nostdin` (or `</dev/null`) for every command in it.
+- `remotion render --sequence` refuses an output dir with a dot anywhere in its path
+  (`.cache/…`, `.agent-tmp/…`): give it a path relative to the video project.
