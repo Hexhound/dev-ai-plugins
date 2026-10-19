@@ -45,7 +45,9 @@ that shows up after the screen has moved on "highlights nothing".
 Never several short scrolls in a row — a helper that drags a fixed distance and checks
 again reads as fumbling. Scroll once, sized to the target, with an ease-out drag (a slow
 eased start can register as a long press). If the target is far, cut instead.
-Never scroll to something already on screen.
+Never scroll to something already on screen — a helper that decides "on screen" by the
+bottom bar's top must know a sheet has none, or it swipes at a button already in view and
+the footage stands still for seconds. A drag that moved nothing means stop.
 
 ## 3. The camera shows what is being done
 
@@ -53,8 +55,8 @@ Never scroll to something already on screen.
   before the action, not after.
 - Nothing the line talks about sits under the caption band or the header fade — move the
   camera, or scroll the app so the subject is in the middle.
-- A web page or browser starts **fully zoomed out** (the whole page in the window) and
-  closes in only once the page itself is on screen — not during a loader before it.
+- A web page in a browser: **show the whole page and scroll it; don't zoom**. A zoom (even
+  one that starts after the page has loaded) reads as a cropped page.
 - Don't linger on empty parts of a screen; pull back after the action.
 
 ## 4. The app must look still when it is still
@@ -66,8 +68,24 @@ Never scroll to something already on screen.
   pickers).
 - With the caret steady, turn off "show password characters" so a typed password's last
   letter isn't left on show.
-- **Keep the keyboard up between fields of one form**: tap the next field directly.
-  Closing it in between drops the sheet and lifts it again — the form jumps.
+- **No on-screen keyboard at all.** One that opens and closes between fields drops the
+  sheet and lifts it again — the form jumps; one that stays up hides half the screen.
+  Text appearing in a field with its caret reads fine on its own.
+  - Android: install `capture/android/nokeyboard` (`build.sh`): an input method that
+    never shows and commits typed keys itself; type with adb `input text`. The obvious
+    shortcuts fail: Gboard can't be switched off (the system turns it back on);
+    "hardware keyboard, hide the on-screen one" leaves a black navigation strip with
+    keyboard icons; Google's autofill input method shows its own panel; an input method
+    that lets typed keys through to the app takes the window out of touch mode, and a
+    Flutter app then wears a focus outline round the whole screen.
+  - iOS Simulator: I/O → Keyboard → Connect Hardware Keyboard.
+  - Driver helpers that "hide the keyboard" with Back must check that one is actually
+    visible (Android: `mIsInputViewShown`, not `mInputShown`), or Back leaves the screen.
+  - A typed key that reaches an app with no field focused still takes the screen out of
+    touch mode; an app opened then keeps the outline until it's opened again. Check the
+    screen edge after resetting the app and relaunch if it's there.
+- **Film on an idle machine.** A render (even at low priority) beside an emulator take
+  halves the frames the emulator delivers: animations stutter. Film everything, then render.
 - System pickers remember state (last folder, last choice): the take must detect and adapt
   to it, and clear leftovers (old exports) first.
 - Check the device's display cutout lines up with the mockup's camera hole; emulators
@@ -98,7 +116,8 @@ Never scroll to something already on screen.
 2. Any ring on something already selected, or not acted on? Any oversized ring? (§1)
 3. Any run of short scrolls, or a scroll to something already visible? (§2)
 4. Is the subject of every line on screen, clear of caption and header? (§3)
-5. Web/browser views: whole page first, zoom in after the page shows? (§3)
-6. Caret steady; keyboard stays up through a form; nothing flickers? (§4)
-7. Silences > 3 s? A closing line? Privacy wording true? (§5)
+5. Web/browser views: whole page, scrolled, never zoomed? (§3)
+6. Caret steady; no on-screen keyboard anywhere; nothing flickers? (§4)
+7. Silences > 3 s, or stretches where nothing moves? A closing line? Privacy wording
+   true? (§5)
 8. Full render scanned frame by frame for glitches? (§6)

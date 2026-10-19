@@ -96,6 +96,11 @@ headless, in story order, and writes the capture contract per segment:
   the camera follows, and a rect for every region the camera frames or a callout points
   at. Park dialogs where they don't cover the subject.
 - Hold states long enough to remap (≥ 15 frames per event).
+- Mobile: no on-screen keyboard in the footage (`capture/android/nokeyboard`, or the iOS
+  Simulator's hardware keyboard), and nothing else running on the capture machine while
+  a take films — see `references/tutorials.md` §4.
+- Edits refer to capture frames by marker (+ offset), never by absolute frame number: a
+  take filmed again shifts every frame.
 - Check: `scripts/contact-sheet.sh promo/capture/<segment> sheet.jpg` and look at it.
   Fix the driver until every marker frame shows what the storyboard says.
 
