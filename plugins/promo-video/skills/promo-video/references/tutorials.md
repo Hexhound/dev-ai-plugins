@@ -110,6 +110,38 @@ the footage stands still for seconds. A drag that moved nothing means stop.
 - Scan the full render frame by frame for single-frame glitches (a frame unlike both its
   neighbours) — a contact sheet samples and misses them.
 
+## 7. Another language
+
+The same videos in another language are the same edit with every word and every frame
+replaced: film them again, don't overdub. Keep one source of the timing.
+
+- **One switch, separate copies.** A single language variable that every script reads; each
+  language its own footage, voice picks, timelines and outputs next to the original's, so
+  one never overwrites the other. The tutorial specs stay the original's, with a translation
+  file laid over them: the words, and which translated word each "when the voice says X"
+  time waits for.
+- **The whole device in that language**, not just the app: the launcher, the photo picker,
+  the notifications and the widget picker show up in the takes. On an emulator image with
+  no root, a tiny helper app granted `CHANGE_CONFIGURATION` and `WRITE_SETTINGS` over adb
+  (and hidden APIs allowed) can call `LocaleManager.setSystemLocales`.
+- **The demo data in that language**, with that country's names, phones, prices and
+  clinics; and translated paper props (a prescription that gets scanned must read in the
+  language, laid out like the original so anything timed to its lines still lines up).
+- **The take scripts translate what they look for and type**, from the app's own string
+  files first, then a short hand-written table for the system's screens, typed text and
+  partial texts; a text with no translation stops the take naming it, rather than failing
+  later on a missing button. The same English word can differ by place ("Done" →
+  "Concluído" / "Pronto"): let the scripts name the place. adb's `input text` types ASCII
+  only: keep typed text free of accents.
+- **Film it and look at every sheet**: anything still in the original language on screen is
+  an app bug (hard-coded strings, fixed date patterns like `MMM d` instead of locale
+  skeletons, hand-made month tables, widget resources never translated, plurals). Fix the
+  app, rebuild, film those takes again.
+- **The voice**: a multilingual TTS with the same reference clip; whisper in that language
+  to judge takes. Find the brand's spelling hint by ear-proxy: generate a sentence with a few
+  spellings and keep the one whisper writes back as the brand. Short promo lines: they must
+  fit the original's bars.
+
 ## Tutorial checklist (critic, and you before each render)
 
 1. Every ring up ≥ 0.75 s before its tap, gone at it; none through a crossfade? (§1)
@@ -121,3 +153,5 @@ the footage stands still for seconds. A drag that moved nothing means stop.
 7. Silences > 3 s, or stretches where nothing moves? A closing line? Privacy wording
    true? (§5)
 8. Full render scanned frame by frame for glitches? (§6)
+9. Another language: nothing on screen still in the original language — app, system,
+   props, demo data? (§7)
