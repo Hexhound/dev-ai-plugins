@@ -137,10 +137,17 @@ replaced: film them again, don't overdub. Keep one source of the timing.
   an app bug (hard-coded strings, fixed date patterns like `MMM d` instead of locale
   skeletons, hand-made month tables, widget resources never translated, plurals). Fix the
   app, rebuild, film those takes again.
-- **The voice**: a multilingual TTS with the same reference clip; whisper in that language
-  to judge takes. Find the brand's spelling hint by ear-proxy: generate a sentence with a few
+- **The voice**: a multilingual TTS cloning a **native speaker's** reference clip, one per
+  language (Kokoro has native voices for several: pt-BR Dora and Alex, …). Never reuse the
+  original language's clip: whisper hears every word, yet the owner heard "an American
+  speaking Portuguese" and the whole set was voiced and rendered again. Offer the owner two
+  native voices on the promo (only its audio changes: lines sit on bars) before voicing the
+  tutorials. Whisper in that language judges takes; a word whisper never hears right in
+  eight seeds ("app" as "API") gets reworded, and a line read as a question gets another
+  conjunction. Find the brand's spelling hint by ear-proxy: generate a sentence with a few
   spellings and keep the one whisper writes back as the brand. Short promo lines: they must
-  fit the original's bars.
+  fit the original's bars. A faster voice says a ring's word sooner: check rings against the
+  camera again, and let a language start a line later than the original.
 
 ## Tutorial checklist (critic, and you before each render)
 
