@@ -1,23 +1,21 @@
 # store-screenshots
 
-Design high-converting **App Store & Google Play screenshots** as bespoke HTML/CSS, then
-render them deterministically to exact store dimensions with headless Chromium — including
-photorealistic 3D device mockups. Fully offline, **$0, no image-generation API.**
+Design high-converting **App Store & Google Play screenshots** as bespoke reel scenes
+(TypeScript drawn on the GPU), with photorealistic 3D devices showing the app, rendered
+deterministically at exact store dimensions, in every language the listing ships. Fully
+offline, **$0, no image-generation API.**
 
-This README is the **script reference**. For *how the skill runs* (the guided
-questionnaire, design guidelines, phases) read `SKILL.md` — or invoke it:
+This README is the **reference**. For *how the skill runs* (the guided questionnaire,
+design guidelines, phases) read `SKILL.md` — or invoke it:
 
 ```
-/store-screenshots ~/projects/hex_hound/caremate
+/store-screenshots ~/projects/hexhound/caremate
 ```
 
 ## The core idea
 
-Two things are split cleanly:
-
-- **The pipeline is fixed** (the scripts below): 3D device rendering, the HTML→PNG
-  compositor at exact store sizes, bundled fonts, deterministic capture. You drive these,
-  never rebuild them.
+- **The pipeline is fixed**: reel draws the scenes (devices with `cv.model`, text, layout,
+  gradients, shadows); the bundled fonts and device models. You drive it, never rebuild it.
 - **The design is generative** (the skill's job): every screenshot's layout, colour, type
   and composition is authored fresh to match *this* app's brand. Two sets built with this
   skill should look like they came from two different studios. **Match the app, not a
@@ -25,59 +23,40 @@ Two things are split cleanly:
 
 ## Requirements
 
-- **Python 3** (stdlib only) + **Chromium** — both from the plugin's nix deps
-  (`nix/deps.nix`). No pip installs, no API keys.
-- 3D device models are bundled under `assets/models/` (CC-BY-4.0 by DatSketch — see the
-  NOTICE there).
+- **reel**: `nix profile install github:sezaru/reel` (it brings ffmpeg, the Vulkan loader
+  and fallback fonts; the GPU driver comes from the system). `reel docs models` is the
+  device reference, `reel docs` the guide.
+- 3D device models are bundled under `assets/models/` (CC-BY-4.0, credits in the NOTICE
+  there); fonts under `assets/fonts/` (OFL).
 
-## The scripts
+## Use
 
-**`render.py`** — the compositor. Renders authored screenshot HTML fragment(s) to store
-PNGs at exact dimensions, injecting bundled fonts + foundation CSS.
 ```bash
-render.py screenshots/*.html --out-dir screenshots/final          # iPhone 6.7" (1290×2796 default)
-render.py 01.html --width 1080 --height 1920                       # Play Store phone
+scripts/init-screenshots.sh store/screenshots s21-ultra    # types, fonts, the models, lib/, a starter shots.ts
+reel check store/screenshots/shots.ts
+reel sheet store/screenshots/shots.ts --count 5 --cols 5 -o sheet.png
+reel still store/screenshots/shots.ts --at markers -o store/screenshots/final/en/
+reel still store/screenshots/shots.ts --at markers -o store/screenshots/final/de-DE/ --set lang=de-DE
 ```
 
-**`render_phone.py`** — renders a raw app screenshot onto a photorealistic 3D phone/tablet
-model (Three.js/WebGL via SwiftShader), output transparent PNG to drop into a stage.
-```bash
-render_phone.py raw/01.png --model iphone-12-pro --out shots/dev-01.png
-render_phone.py raw/01.png --model s21-ultra --yaw 18 --pitch -6 --out shots/hero.png   # angled hero
-render_phone.py raw/01.png --model ipad-pro-12-9 --orient landscape --out shots/dev-01.png
-```
-Flags: `--model` (bundled name or path to `scene.gltf/.glb`) · `--yaw`/`--pitch` (orbit) ·
-`--orient portrait|landscape` · `--scale` · `--width`/`--height`.
-
-**`cdp_shot.py`** — low-level headless-Chromium capture over the DevTools protocol (used by
-the two renderers; not usually called directly).
+One scene holds the whole set: a frame per screenshot, a marker naming each; `--at
+markers` writes `NAME.png` per marker.
 
 ## Directories
 
 | dir | contents |
 |---|---|
 | `assets/` | bundled fonts + 3D device models (`models/`, with NOTICE) |
-| `three/` | Three.js/WebGL runtime for the 3D device renderer |
-| `design/` | foundation CSS / design primitives injected at render |
-| `examples/` | reference screenshot HTML to learn the fragment format |
-
-## Workflow (see SKILL.md for the full guided version)
-
-1. **Understand the app** — explore the project for what it does, who it's for, and its
-   **visual identity** (brand colour, typeface, personality).
-2. **Brief** — confirm audience, the single biggest reason to download, differentiators.
-3. **Plan the set** — propose the screenshot plan + visual system as text; get approval.
-4. **Capture** — user captures the planned raw app screens.
-5. **Design & render** — for each: `render_phone.py` (3D device) → author the stage HTML
-   bespoke → `render.py` (composite to exact store size). Iterate on PNGs with the user.
-
-Pass matching `--width`/`--height` to **both** `render_phone.py` and `render.py` for a
-given target size.
+| `lib/` | `stage.ts` (a CSS-like radial `glow`, store `SIZES`, `tracking`), `glow.wgsl`; copied into each project |
+| `scripts/` | `init-screenshots.sh` (scaffold), `shots.ts` (the starter scene it copies) |
+| `examples/` | three worked compositions (`reel still examples/bold-benefit.ts --at 0 -o x.png`); `raw/app.ts` draws their demo app screen |
 
 ## Notes
 
-- **Dimensions matter:** default 1290×2796 (iPhone 6.7"); use 1080×1920 for Play phone,
-  and the iPad sizes for tablet listings. The store rejects mismatched dimensions.
+- **Dimensions matter:** the stores reject mismatched sizes (`SIZES` in `lib/stage.ts`).
 - **The first screenshot does most of the selling** — treat it (and its thumbnail
   legibility) as the priority; see the DESIGN GUIDELINES in SKILL.md.
 - Deterministic + offline: same inputs → same PNGs, no network, no per-image cost.
+- Before reel this skill composed HTML with headless Chromium and three.js; that pipeline
+  is in git history. reel's devices match its renders (SSIM ≥ 0.997 on the phones) and
+  land in the same place.
