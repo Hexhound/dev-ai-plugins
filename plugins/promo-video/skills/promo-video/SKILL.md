@@ -1,18 +1,19 @@
 ---
 name: promo-video
-description: Make a polished 30–45 s product promo / ad video for a desktop, web or mobile app — real captured app footage driven by a script, composed in Remotion with camera moves, text treatments and beat-synced royalty-free music. Storyboard reviewed by a critic agent before anything is captured. Use when asked for a promo, ad, launch or trailer video of an app.
+description: Make a polished 30–45 s product promo / ad video for a desktop, web or mobile app — real captured app footage driven by a script, composed in reel (TypeScript scenes drawn on the GPU) with camera moves, text treatments and beat-synced royalty-free music. Storyboard reviewed by a critic agent before anything is captured. Use when asked for a promo, ad, launch or trailer video of an app.
 user-invocable: true
 ---
 
 You are a motion designer and director making a launch promo for a real app. The video
 is **the real app doing real things**, captured frame by frame from a scripted run, then
-directed in Remotion: continuous camera moves, action-following zooms, dramatized
+directed in reel (`~/projects/reel`) — TypeScript scene files drawn on the GPU, with
+Remotion's timing functions: continuous camera moves, action-following zooms, dramatized
 before/afters, varied typography, cuts on the music's bar lines.
 
 Split of responsibilities:
 
 - **Fixed pipeline (given):** the capture contract and adapters, the engine building
-  blocks (`engine/src/lib`), music search/analysis, render + mux scripts, QA sheets.
+  blocks (`engine-reel/lib`), music search/analysis, reel's render/still/sheet/check.
 - **Generative direction (your job):** the story, shots, camera, text, look and pacing —
   authored fresh for this product. Two promos made with this skill should share film
   grammar (`references/craft.md`) and nothing else.
@@ -25,13 +26,15 @@ Everything lives in the app repo under `promo/`:
 
 ```
 promo/brief.md  promo/storyboard.md  promo/reviews/  promo/music/  promo/capture/
-promo/driver/ (capture code)  promo/video/ (Remotion project)  promo/out/
+promo/driver/ (capture code)  promo/video/ (reel scenes)  promo/out/
 ```
 
-Tools come from the plugin's Nix deps (`promo-video-deps`): node, chromium, ffmpeg,
-aubio, imagemagick, jq, and a prebuilt Remotion + Playwright `node_modules`
-(`promo-video-node-modules` prints its path). Scripts below are in this skill's
-`scripts/` dir. Heavy capture/render can run on a stronger machine over ssh.
+reel is its own install (`nix profile install` of the reel repo; it brings ffmpeg, the
+Vulkan loader and fallback fonts; the GPU driver comes from the system). **Read `reel docs`
+before composing** — the guide, the patterns, and how to check work — and `reel docs api`
+for every function. The plugin's Nix deps (`promo-video-deps`) cover the rest: node,
+ffmpeg, aubio, imagemagick, jq, Playwright for web capture. Scripts below are in this
+skill's `scripts/` dir. Heavy capture/render can run on a stronger machine over ssh.
 
 ---
 
@@ -99,43 +102,58 @@ headless, in story order, and writes the capture contract per segment:
 
 ## PHASE 5 — Compose
 
-`scripts/init-video.sh promo/video` scaffolds the Remotion project with the engine
-(`src/lib`: beat clock, capture remap/tracks, camera with follow + motion blur, glass
-materialize, sweep reveal, light wipe, flash, backdrop/grain, text treatments incl.
-scrims). Then `scripts/prep-video.sh promo` copies frames (JPEG) and metadata into it.
+`scripts/init-reel.sh promo/video` scaffolds the reel project: reel's types and tsconfig,
+the engine (`lib/`: `clock.ts` the beat clock; `capture.ts` the capture contract, remap,
+tracks; `camera.ts` keyframed stages with follow, perspective tilt; `material.ts` backdrop,
+grain, window, glass materialize, sweep reveal, light wipe, flash, frosted glass, glows;
+`text.ts` eyebrows, split headlines, glass cards, callouts, kinetic words, readouts,
+scrims), and a starter `promo.ts`. The scenes read `promo/capture/<segment>/` and
+`promo/music/music.json` directly: no copying step. `engine-reel/demo.ts` uses every
+block — read it for the API in use.
 
-Write `src/Promo.tsx` for this storyboard. Rules of thumb:
+Write `promo.ts` (split into `scenes/*.ts` past a few hundred lines) for this storyboard.
+Rules of thumb:
 
 - All times via the clock: `c.at(bar, beat)`. All app events via `remap` on capture
-  markers. No magic frame numbers.
-- One `Stage` + keyframe list for each continuous app shot; `cut: true` only at real
+  markers. No magic frame numbers. Name the storyboard's moments in `config.markers`.
+- One `stage` + keyframe list for each continuous app shot; `cut: true` only at real
   context changes; match cuts align rects (see the example's wolf).
-- Extend `lib/` when a shot needs a new device, bespoke to this product; keep lib
-  generic.
+- `draw(cv, f)` depends on `f` only (reel draws frames out of order, on many threads,
+  several times each for motion blur): precompute at module level, never carry state.
+- reel adds true motion blur by itself: don't fake it with blur on moving things.
+- Extend `lib/` when a shot needs a new device, bespoke to this product; keep lib generic.
+  Something reel itself can't draw belongs in reel, not in a workaround.
 
 QA loop — never skip:
-1. `scripts/stills.sh promo/video <t1> <t2> …` renders stills at each shot's key moment
-   into a contact sheet. **Look at it.** Fix overlaps, illegible text, blur, dead frames.
-2. Spawn `promo-critic` for the visual pass with the stills sheet. Save the review,
-   fix, re-check.
+1. `reel check promo/video/promo.ts` after every change (every frame, errors with file:line).
+2. `reel sheet promo/video/promo.ts -o promo/out/sheet.png` and `reel still … --at
+   <marker>,… -o promo/out/stills/` at each shot's key moment. **Look at them.** Fix
+   overlaps, illegible text, dead frames, things that never appear.
+3. Spawn `promo-critic` for the visual pass with the sheet. Save the review, fix, re-check.
+4. `reel preview promo/video/promo.ts` plays it in a window (reloads on save) if a
+   display is available; drafts: `reel render … --scale 0.5 --no-motion-blur`.
 
 ## PHASE 6 — Render + deliver
 
-`scripts/render.sh promo/video promo/music/<track>.mp3 <music.json> promo/out/<name>.mp4`
-renders an image sequence, encodes H.264, and muxes the music section with fades,
-normalized to −14 LUFS. Make a contact sheet of the final file and look at it. Deliver
-the path, length, the attribution line(s) to put in the post, and what you didn't
-verify (you can't hear the mix).
+The music goes in the config (`audio: [musicTrack(music, "../music/track.mp3")]`,
+`loudness: -14`): `reel render promo/video/promo.ts -o promo/out/<name>.mp4` draws, encodes
+H.264 (BT.709) and mixes it in one pass (`--encoder nvenc` on an NVIDIA GPU is much faster).
+Make a contact sheet of the final file and look at it. Deliver the path, length, the
+attribution line(s) to put in the post, and what you didn't verify (you can't hear the
+mix).
+
+Projects made before reel use the Remotion engine (`engine/`, `init-video.sh`,
+`prep-video.sh`, `render.sh`, `stills.sh`); keep those working, but start new ones in reel.
 
 ## Gotchas
 
-- **Remotion licence**: free for individuals and companies ≤ 3 people; larger companies
-  need a Remotion company licence. Say so if the user is a company.
-- **NixOS**: the Nix-packaged Remotion has its compositor patched; if a direct `.mp4`
-  render still fails, the scripts' image-sequence + ffmpeg path always works.
-- Fonts in headless capture/render come from fontconfig — set `FONTCONFIG_FILE` to a
-  config that includes the brand fonts, or text falls back silently.
+- Fonts: list the brand's font files in the video config's `fonts` and name the default
+  `font`; reel never picks up the host's fonts (renders match on every machine). Any
+  script falls back to Noto. Headless *capture* still needs `FONTCONFIG_FILE` with the
+  brand fonts, or the app's text falls back silently.
+- reel has no `Math.random()`, `Date`, DOM, npm or Node modules: `random(seed)` for
+  variety, `import.meta.dirname` for a module's own files.
 - Don't reveal a transformation's result before its scene (craft §3). Capture order =
   story order.
-- Heavy motion blur and big zoom-follow amplify each other — keep blur subtle and the
-  follow track well smoothed; check stills of fast moments.
+- Big zoom-follows amplify motion blur — keep the follow track well smoothed and check
+  stills of fast moments.
