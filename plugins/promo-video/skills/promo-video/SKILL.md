@@ -1,6 +1,6 @@
 ---
 name: promo-video
-description: Make a polished 30–45 s product promo / ad video for a desktop, web or mobile app — real captured app footage driven by a script, composed in reel (TypeScript scenes drawn on the GPU) with camera moves, text treatments and beat-synced royalty-free music. Storyboard reviewed by a critic agent before anything is captured. Use when asked for a promo, ad, launch or trailer video of an app.
+description: Make a polished 30–45 s product promo / ad video for a desktop, web or mobile app — real captured app footage driven by a script, composed in reel (TypeScript scenes drawn on the GPU) with camera moves, text treatments and beat-synced royalty-free music. Storyboard reviewed by a critic agent before anything is captured. Also narrated how-to / tutorial videos of app features from the same footage pipeline. Use when asked for a promo, ad, launch, trailer or tutorial video of an app.
 user-invocable: true
 ---
 
@@ -20,7 +20,9 @@ Split of responsibilities:
 
 Read `references/craft.md` before writing anything. It is the standard the critic grades
 against. `examples/omaphoto/` is one worked promo — read it for technique, never copy its
-look.
+look. For **tutorials** (narrated how-tos: one feature, the narrator says what to tap,
+captions, rings on what to look at) read `references/tutorials.md` too: there the voice
+sets the pace instead of the beat, and its checklist is what the owner will review.
 
 Everything lives in the app repo under `promo/`:
 
@@ -97,6 +99,11 @@ headless, in story order, and writes the capture contract per segment:
   the camera follows, and a rect for every region the camera frames or a callout points
   at. Park dialogs where they don't cover the subject.
 - Hold states long enough to remap (≥ 15 frames per event).
+- Mobile: no on-screen keyboard in the footage (`capture/android/nokeyboard`, or the iOS
+  Simulator's hardware keyboard), and nothing else running on the capture machine while
+  a take films — see `references/tutorials.md` §4.
+- Edits refer to capture frames by marker (+ offset), never by absolute frame number: a
+  take filmed again shifts every frame.
 - Check: `scripts/contact-sheet.sh promo/capture/<segment> sheet.jpg` and look at it.
   Fix the driver until every marker frame shows what the storyboard says.
 
@@ -136,14 +143,35 @@ QA loop — never skip:
 ## PHASE 6 — Render + deliver
 
 The music goes in the config (`audio: [musicTrack(music, "../music/track.mp3")]`,
-`loudness: -14`): `reel render promo/video/promo.ts -o promo/out/<name>.mp4` draws, encodes
-H.264 (BT.709) and mixes it in one pass (`--encoder nvenc` on an NVIDIA GPU is much faster).
-Make a contact sheet of the final file and look at it. Deliver the path, length, the
-attribution line(s) to put in the post, and what you didn't verify (you can't hear the
-mix).
+`loudness: -14`, −16 for tutorials): `reel render promo/video/promo.ts -o
+promo/out/<name>.mp4` draws, encodes H.264 (BT.709 limited range, tagged) and mixes it in
+one pass (`--encoder nvenc` on an NVIDIA GPU is much faster).
+
+1. **Draft first.** While the user is still reviewing, render half size and light
+   (`--scale 0.5 --no-motion-blur --crf 26`) and deliver that; do the full render only
+   after their OK. Every revision round goes through a draft.
+2. **Use the machine.** One render already runs the scene on every core but two
+   (`--workers`) and draws on the GPU, and x264 is usually the slowest part. For a set of
+   videos (a tutorial series), render them one after another, or side by side with
+   `--workers` ≈ (cores − 2) ÷ lanes; check `nproc` and the load first. `--from`/`--to`
+   re-render just a part.
+3. **QA the file, not the plan.** Make a contact sheet of the final file (`reel sheet`
+   samples the scene; `scripts/contact-sheet.sh` the file) and look at it, *and* scan every
+   frame of the file for single-frame glitches (a frame far from both neighbours while
+   they agree) — a sheet samples one frame in hundreds and misses them. reel draws the
+   same frame the same way every time, so a glitch is in the footage or the timeline (a
+   torn capture frame, a keyframe that snaps): fix it there. Play every transition frame
+   by frame.
+
+Deliver the path, length, the attribution line(s) to put in the post, and what you didn't
+verify (you can't hear the mix).
 
 Projects made before reel use the Remotion engine (`engine/`, `init-video.sh`,
 `prep-video.sh`, `render.sh`, `stills.sh`); keep those working, but start new ones in reel.
+Their renders go through `chrome-headless-shell` (in the deps; `scripts/browser.sh` sets
+it up with its shared memory in `/dev/shm`): plain `chromium` now and then screenshots a
+frame before all of it is drawn. `remotion render --sequence` refuses an output dir with a
+dot anywhere in its path: give it one relative to the video project.
 
 ## Gotchas
 
@@ -157,3 +185,9 @@ Projects made before reel use the Remotion engine (`engine/`, `init-video.sh`,
   story order.
 - Big zoom-follows amplify motion blur — keep the follow track well smoothed and check
   stills of fast moments.
+- Time-dilated capture slows animations but not timers: a caret (or any blink) flickers.
+  Hold it steady in the capture build (tutorials.md §4).
+- The device frame's camera hole must line up with the screen's cutout — emulators often
+  draw theirs off-centre; look at a still of the bare phone.
+- Driving a render host with `ssh host bash -s <<'EOF' … EOF`: ffmpeg reads stdin and eats
+  the rest of the script. Use `ffmpeg -nostdin` (or `</dev/null`) for every command in it.

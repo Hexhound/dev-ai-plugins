@@ -11,8 +11,10 @@ Not intended for public distribution.
 | `dev-workflow` | Provider- and language-neutral agentic workflow: feature/refactor/bugfix playbooks, a fresh-context reviewer subagent, and a deterministic verify gate |
 | `elixir-dev` | Elixir / Phoenix / LiveView backend: stack conventions + the `mix precommit` verify-gate wiring `dev-workflow` enforces |
 | `mobile-dev` | Flutter-based iOS & Android app development: skills, code guidelines, MCP servers |
-| `promo-video` | Polished promo / ad videos of desktop, web and mobile apps: scripted real-app capture, Remotion composition, beat-synced CC BY music, critic-reviewed storyboards |
+| `promo-video` | Polished promo / ad videos of desktop, web and mobile apps: scripted real-app capture, reel composition, beat-synced CC BY music, narrated tutorials, critic-reviewed storyboards |
 | `roam-dev` | Building on roam-sync: E2E-encrypted offline-first multi-device sync, LAN pairing, nearby sharing |
+| `asset-extract` | 3D models out of web pages as files: from a Zen/Firefox tab's disk cache (no browser automation), unpacked for Blender, with textures and a preview; or generated on hi3d.ai from an image (headless chromium, throwaway account) |
+| `asset-optimize` | Make heavy 3D models game-ready in Blender: triangle-budget variants (all from 40k to 1k, or a specific count) saved one .blend each, with the original material and/or an unlit albedo look |
 
 Unlike `mobile-dev`, `roam-dev` is **not** vendored here — it lives in the
 `Hexhound/roam` repo and is referenced by a `github` source, so the skills version
@@ -84,10 +86,41 @@ it with any language pack. Its Stop hook needs `jq` on PATH; it fails open witho
 ```
 
 Then `/promo-video:promo-video <app dir>`. Add `promo-video-deps` to the app's devenv (see
-[Dependencies](#dependencies-nix-flake)) — it brings node, chromium, ffmpeg, aubio, imagemagick
-and a prebuilt Remotion + Playwright `node_modules` (Remotion's compositor patched for NixOS),
-so promo projects need no `npm install`. Remotion is free for individuals and companies of
-up to 3 people; larger companies need a Remotion company licence.
+[Dependencies](#dependencies-nix-flake)) — it brings reel (the videos are composed in it), node,
+chromium, ffmpeg, aubio, imagemagick and a prebuilt Playwright `node_modules` for web capture,
+so promo projects need no `npm install`. Older promos made with Remotion still render (its
+`node_modules` is in the deps too); Remotion is free for individuals and companies of up to 3
+people, larger companies need a Remotion company licence.
+
+#### Extracting assets from the browser (any machine)
+
+```
+/plugin install asset-extract@dev-ai-plugins
+```
+
+Then `/asset-extract:extract-3d-model <tab or site> <where to save>` pulls the 3D model a
+tab is showing (Tripo, Hi3D, product viewers, ...) out of a Zen/Firefox-family profile's
+disk cache. It never drives the browser. Its script runs from `asset-extract-deps` when
+that's on PATH, and otherwise builds the same deps (python + zstandard/brotli/trimesh,
+gltfpack) with nix-shell on first use.
+
+`/asset-extract:generate-hi3d-model <image> <where to save>` generates a model on hi3d.ai
+instead: it signs up a throwaway account (via a mail.tm inbox), uploads the image in a
+headless chromium, waits ~10 min and saves the GLB the site's viewer loads, plus a
+metadata file and a screenshot. It needs node, chromium and a prebuilt `playwright-core`,
+also in `asset-extract-deps`.
+
+#### Optimizing 3D models for games (any machine)
+
+```
+/plugin install asset-optimize@dev-ai-plugins
+```
+
+Then `/asset-optimize:model-variants <model file> <output dir>` asks whether you want every
+triangle budget (40k, 20k, 12k, 8k, 5k, 2.5k, 1k) or a specific count, and whether you want
+the original material, an unlit albedo material (the texture as painted), or both. It saves
+one .blend per variant plus a labelled preview sheet. It runs a headless Blender: the one on
+PATH (`asset-optimize-deps` provides it) or `nix run nixpkgs#blender`.
 
 ## Layout
 

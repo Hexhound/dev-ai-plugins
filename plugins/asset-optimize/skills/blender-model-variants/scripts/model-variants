@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Runs model_variants.py in a headless Blender: the one on PATH (e.g. from the
+# `asset-optimize-deps` flake package), otherwise nixpkgs' blender via `nix run`.
+set -euo pipefail
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+script="$here/model_variants.py"
+if command -v blender >/dev/null; then
+  exec blender -b --factory-startup --python "$script" -- "$@"
+fi
+exec nix run nixpkgs#blender -- -b --factory-startup --python "$script" -- "$@"

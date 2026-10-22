@@ -2,6 +2,7 @@
 # Renders stills at the given seconds and tiles them into one sheet to look at.
 # Usage: stills.sh <promo/video> <sheet.jpg> <t1> [t2 ...]
 set -euo pipefail
+. "$(dirname "$0")/browser.sh"
 video=$1 sheet=$(realpath -m "$2"); shift 2
 cd "$video" && rm -rf out/stills && mkdir -p out/stills
 for t in "$@"; do

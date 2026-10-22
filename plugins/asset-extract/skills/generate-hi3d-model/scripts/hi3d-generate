@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Runs hi3d_generate.mjs with its deps: the current PATH if it already has them (the
+# `asset-extract-deps` flake package), otherwise a nix-shell built from the plugin's deps.nix.
+set -euo pipefail
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+script="$here/hi3d_generate.mjs"
+if command -v node >/dev/null && command -v chromium >/dev/null && command -v asset-extract-node-modules >/dev/null; then
+  NODE_PATH=$(asset-extract-node-modules) CHROMIUM=${CHROMIUM:-$(command -v chromium)} exec node "$script" "$@"
+fi
+deps=$(realpath "$here/../../../nix/deps.nix")
+exec nix-shell -E "with import <nixpkgs> {}; mkShell { packages = import $deps pkgs; }" \
+  --run "NODE_PATH=\$(asset-extract-node-modules) CHROMIUM=\$(command -v chromium) node $(printf '%q' "$script") ${*:+$(printf '%q ' "$@")}"

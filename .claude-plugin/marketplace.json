@@ -45,7 +45,17 @@
     {
       "name": "promo-video",
       "source": "./plugins/promo-video",
-      "description": "Polished product promo / ad videos for desktop, web and mobile apps: scripted real-app capture, Remotion composition with directed camera and text, beat-synced royalty-free music, and a critic agent that reviews the storyboard and the render."
+      "description": "Polished product promo / ad videos for desktop, web and mobile apps: scripted real-app capture, reel composition (TypeScript scenes on the GPU) with directed camera and text, beat-synced royalty-free music, narrated feature tutorials, and a critic agent that reviews the storyboard and the render."
+    },
+    {
+      "name": "asset-extract",
+      "source": "./plugins/asset-extract",
+      "description": "Get 3D models out of web pages as files: from a Zen/Firefox tab's disk cache without touching the browser (unpacked for Blender, with textures and a preview), or generated on hi3d.ai from an image, saving the GLB its viewer loads."
+    },
+    {
+      "name": "asset-optimize",
+      "source": "./plugins/asset-optimize",
+      "description": "Make heavy 3D models game-ready in Blender: triangle-budget variants (decimated with UV seams kept) saved one .blend each, with the original material or an unlit albedo look that shows the texture as painted."
     }
   ]
 }

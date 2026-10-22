@@ -1,0 +1,9 @@
+{
+  "name": "asset-optimize",
+  "description": "Make heavy 3D models game-ready in Blender: triangle-budget variants (decimated, UV seams kept) saved one .blend each, with the original material or an unlit albedo look that matches how the texture was painted.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Eduardo Barreto Alexandre",
+    "email": "claude@sezdm.com"
+  }
+}
