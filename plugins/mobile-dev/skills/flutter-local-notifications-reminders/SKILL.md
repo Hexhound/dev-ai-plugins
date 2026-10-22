@@ -26,7 +26,8 @@ Pairs with `flutter-sqlite-ffi-fts5` (the background-isolate DB rule) and
 10. OS states that silently break delivery — detect and report
 11. Catch-up, and why it must be bounded
 12. Gotchas
-13. Diagnosing a real device
+13. Exercising it on an emulator
+14. Diagnosing a real device
 
 ## 1. Dependencies & manifest
 
@@ -79,6 +80,24 @@ it — Android retains deleted-channel settings for 30 days and un-deletes in pl
 `bypassDnd`, and audio attributes are frozen at first creation, forever, for every existing
 install. If you must change one, you need a **new channel id**. Storing the id as a rotatable
 value (a UUID in prefs) is cheaper than hardcoding `_v2`, `_v3` … as you discover this.
+
+A user-selectable sound or alert style is the same problem: one channel per combination
+(`reminders_alarm_tone_bell`, `reminders_tone_bell`, …), picked per notification, with the
+previous combination's channels deleted. Two traps in that deletion:
+
+- **Prune only from the app's own isolate.** Every isolate that posts (the notification-action
+  callback, a WorkManager or alarm-manager job) calls `init`, and if `init` prunes "every reminder
+  channel but the current sound's", an isolate that read the sound a moment before the user
+  picked a new one deletes the *new* sound's channels. Background isolates create their channels
+  and never delete; the app prunes on start and on the sound change itself.
+- **Deleting a channel dismisses everything posted on it.** A sound change would silently take
+  unread overdue reminders out of the shade. Keep any channel that `getActiveNotifications()`
+  still shows something on; a later start prunes it.
+
+Keep that choice **device-level and out of every backup**. A ringtone `content://` URI from one
+phone means nothing on another. Your own backup leaving it out is not enough: Android Auto
+Backup and device-to-device transfer copy the app's `files/` and databases unless the manifest's
+`android:dataExtractionRules` excludes the file.
 
 ## 3. Permissions — and why they are not enough
 
@@ -170,6 +189,14 @@ a **negative priority** so the ordered broadcast reaches it after the plugin's �
 a lookup of the PendingIntent that receiver re-creates. Drop records whose instant has passed
 rather than re-arming them: a past alarm clock fires immediately, announcing a dose at whatever
 hour the phone came on.
+
+**Forget the record when a reminder stops being promoted.** If promotion depends on a setting
+(an "alarm" vs "notification" style), switching it re-schedules every reminder through the plugin,
+which replaces the alarm clock with a plain exact alarm, but the promotion record survives. The
+next boot (or app update: `MY_PACKAGE_REPLACED` runs the same replay) promotes them all back to
+alarm clocks, on the quiet style's channel, and the lock screen advertises them again. Measured on
+an API 35 emulator: 0 alarm clocks after the switch, 9 after the next update. Every schedule that
+does *not* promote must also drop that id's record.
 
 **Never promote a repeating reminder.** `matchDateTimeComponents` alarms are re-armed by the
 plugin as each one fires; replacing that with a one-shot alarm clock delivers the next occurrence
@@ -421,13 +448,23 @@ works", and never show a healthy state until the check actually passes.
 | State | Detect | Send user to |
 |---|---|---|
 | Background restricted | `ActivityManager.isBackgroundRestricted()` | `ACTION_APPLICATION_DETAILS_SETTINGS` |
-| Battery optimized | `PowerManager.isIgnoringBatteryOptimizations()` | `ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS` |
+| Battery optimized | `PowerManager.isIgnoringBatteryOptimizations()` | the app's own battery page, `"android.settings.VIEW_ADVANCED_POWER_USAGE_DETAIL"` + `package:` URI; fall back to `ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS` |
 | Exact alarms revoked | `AlarmManager.canScheduleExactAlarms()` | `ACTION_REQUEST_SCHEDULE_EXACT_ALARM` |
 | Notifications off | `areNotificationsEnabled()` | `ACTION_APP_NOTIFICATION_SETTINGS` |
 | Channel (or its **group**) muted | `getNotificationChannel(id).importance != IMPORTANCE_NONE` **and** `getNotificationChannelGroup(channel.group)?.isBlocked != true` | `ACTION_CHANNEL_NOTIFICATION_SETTINGS` |
 | DND on now | `getCurrentInterruptionFilter()` | — |
 | DND disallows alarms | `getConsolidatedNotificationPolicy()` → `PRIORITY_CATEGORY_ALARMS` | — |
 | Alarm volume zero (if using alarm audio) | `AudioManager.getStreamVolume(STREAM_ALARM) == 0` | — |
+
+**Do not send the user to the battery-optimization list.** On Android 14+ (Pixel, measured on
+Android 16/API 37) `ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS` opens "App battery usage"
+*filtered to Unrestricted*, so the one app that needs the switch is exactly the one not listed.
+The app's own battery page is reachable with the hidden but exported AOSP action
+`android.settings.VIEW_ADVANCED_POWER_USAGE_DETAIL` and data `package:<your.package>`; no
+permission needed (`cmd package resolve-activity` shows `exported=true`). It is not a public
+constant, so try it first, then fall back to the list, then to the app details page. On that
+page "Unrestricted" sits behind the *row* of "Allow background usage" (the chevron), not its
+switch, so say so in the instruction.
 
 Five rules that decide whether the health screen is trustworthy:
 
@@ -477,6 +514,12 @@ window in which every reminder was silently dropped, and it is worth telling the
 specifically — it explains the doses they already missed, which a generic "check your settings"
 card does not. Both values null off Android and on any platform failure: a missing measurement
 must never read as a gap.
+
+**A fresh install looks exactly like that gap.** No boot has happened since installing, so the
+receiver has never run and `recoveryRanFor` is null, and the first launch would report every hour
+since the phone was switched on as reminders lost. When both `recoveryRanFor` and the
+last-reported boot are null, report nothing and record the current boot as the baseline the next
+restart is judged by.
 
 Do **not** request `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`. Google's acceptable-use list is
 IM/calling, safety apps, task automation and peripheral companions — alarms are *not* on it, and
@@ -563,6 +606,26 @@ is cancelled in the same sync.) If the id also carries a mode or style, ask the 
 the armed id under **every** value of it: switching modes re-syncs under the new one, and a
 still-pending old-mode alarm read under the new id looks delivered, is dropped, then cancelled.
 
+**If your ids do not encode the fire instant, "still pending" is not enough.** An id built from
+`(entity, period, step)` stays pending across an edit: move the reminder hour from 18:00 to
+09:00 at noon and the sweep sees an id pending whose *new* instant is in the past, then posts a
+"missed" reminder for something that was never due. Put the armed instant in the payload and
+recover only when the pending request's payload carries this exact instant (and entity). The
+plugin's `pendingNotificationRequests()` returns payloads, so this costs nothing.
+
+**Leave a grace window at "now".** An alarm due a few seconds ago may not have had its broadcast
+delivered yet; a sweep at that moment posts it as recovered and then it fires as well. Judge only
+instants older than a couple of minutes, advance the watermark only to that cutoff, and do not
+cancel a pending reminder that falls inside the window.
+
+**Post recoveries quietly.** The sweep runs unattended (a midnight re-sync, a daily job that
+lands at 3 a.m.), so a recovery posted with alarm audio and `CATEGORY_ALARM` rings through Do Not
+Disturb for something already late. Recover on the plain notification channel.
+
+**Two isolates can sweep at once** (the app's start-up sync and a background job that a clock
+change made due, both reading the same watermark). A recovery id derived deterministically from
+the spent alarm's id makes that harmless: the second post replaces the first, one alert.
+
 Two cautions:
 
 - **A WorkManager periodic worker is not an independent second path.** Google's
@@ -626,8 +689,55 @@ horizon it did before (§9).
   reports it — detect the gap by comparing boot time against your receiver's own note (§10).
 - **`cancel(id)` dismisses as well as disarms** — a recovery posted under the spent alarm's id is
   wiped by the same sync. Own id, and a fake sink that models the dismissal (§11).
+- **A promotion record outlives the promotion** — drop it on every non-promoted schedule, or the
+  boot/update replay re-promotes after a style switch (§4).
+- **Only the app prunes channels, and never one with a notification showing** — a background
+  isolate's stale read deletes the new sound's channels; a delete dismisses unread reminders (§2).
+- **The battery-optimization list hides your app on Android 14+** — deep-link the app's own
+  battery page (§10).
+- **A fresh install has no boot baseline** — record one instead of reporting a gap (§10).
+- **Catch-up needs the armed instant, a grace window and a quiet channel** when ids are not
+  instant-derived (§11).
 
-## 13. Diagnosing a real device
+## 13. Exercising it on an emulator
+
+Most of the above can be reproduced on a Play-image emulator without root:
+
+```bash
+adb shell settings put global auto_time 0
+adb shell cmd alarm set-time $(( $(date -d '2026-10-23 08:59:30' +%s) * 1000 ))  # time travel
+adb shell cmd notification set_dnd priority          # then: dumpsys notification shows
+                                                     #   "not_intercepted: … allowedAlarm"
+adb shell am force-stop <pkg>                        # drift: OS alarms gone, plugin store intact
+adb shell cmd appops set <pkg> RUN_ANY_IN_BACKGROUND ignore
+adb shell pm revoke <pkg> android.permission.POST_NOTIFICATIONS
+adb shell am start -a android.settings.CHANNEL_NOTIFICATION_SETTINGS \
+  --es android.provider.extra.APP_PACKAGE <pkg> --es android.provider.extra.CHANNEL_ID <id>
+adb shell dumpsys alarm      # "Alarm clock:" under an entry = promoted; "Next alarm clock" line
+adb logcat -b events -d | grep -E 'notification_(enqueue|alert)' | grep <pkg>
+```
+
+Jumping the clock past armed alarms makes them all fire at once, which is a quick way to see
+which channel each one posts on. Two things it cannot show: a stock API 35 image still delivers
+`BOOT_COMPLETED` to a background-restricted *and* to a force-stopped app, so the "receiver never
+ran" boot gap needs unit tests or an OEM device; and Dart `Timer`s run on the monotonic clock, so
+a midnight timer only fires at a real midnight (set the clock to 23:59, restart the app, wait).
+Test release builds too: the resource shrinker strips raw tones and the notification icon that
+are only referenced by name from Dart (`res/raw/keep.xml` with `tools:keep`).
+
+Traps that fake a result:
+
+- **`am force-stop` also cancels the app's notifications**, so "a channel with a reminder still
+  showing survives the prune" passes or fails for the wrong reason. Restart with
+  `input keyevent HOME; am kill <pkg>` instead, which leaves the shade alone.
+- **Counting `tag=*walarm*:<pkg>` lines over-counts.** The same tags reappear in the wakeup
+  stats and in "Next wake from idle", so right after a resync you see phantom extras. Count
+  pending alarms per `Alarm{…}` block, and compare against the plugin's own store
+  (`run-as <pkg> cat shared_prefs/scheduled_notifications.xml`).
+- **A reboot snaps the clock back to host time**, after `set-time` had moved it forward. A
+  reminder that already fired in the jumped-ahead future is due again, and gets re-armed.
+
+## 14. Diagnosing a real device
 
 Grants and pending-alarm counts look healthy in almost every broken case. The decisive check is
 the **event log**, which distinguishes "never posted" from "posted then killed":
