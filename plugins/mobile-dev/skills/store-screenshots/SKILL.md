@@ -12,8 +12,8 @@ template**. Full design control, exact dimensions, $0.
 
 Two things are split cleanly:
 
-- **The pipeline is fixed** (given to you): reel (`~/projects/reel`, installed with
-  `nix profile install github:sezaru/reel`) draws the scenes on the GPU: photorealistic
+- **The pipeline is fixed** (given to you): reel (`~/projects/reel`, part of the
+  plugin's `mobile-dev-deps`) draws the scenes on the GPU: photorealistic
   3D devices (`cv.model`) with the app's screenshot on the screen, text, layout, gradients,
   shadows, at exact store sizes; the bundled fonts and device models. You never rebuild
   these — you drive them. **Read `reel docs models` and skim `reel docs` before

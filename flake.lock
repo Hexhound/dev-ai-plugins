@@ -16,9 +16,44 @@
         "type": "github"
       }
     },
+    "nixpkgs_2": {
+      "locked": {
+        "lastModified": 1792502884,
+        "narHash": "sha256-IoNisKcGbUjdd45qCqywGMCYmZ5EnkxezvLII0FWwNA=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "02c087f3fe673c9e317f206a627cb6b910336dbe",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "reel": {
+      "inputs": {
+        "nixpkgs": "nixpkgs_2"
+      },
+      "locked": {
+        "lastModified": 1792696522,
+        "narHash": "sha256-ujAutZBgqu4qFWXRiD4lKuuAmbF7E0itd3VlUzLHf0Q=",
+        "owner": "sezaru",
+        "repo": "reel",
+        "rev": "3a69108df46fb28b640de52b41932d13692a328f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "sezaru",
+        "repo": "reel",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": "nixpkgs",
+        "reel": "reel"
       }
     }
   },

@@ -7,7 +7,7 @@ set -euo pipefail
 dest=${1:?usage: init-screenshots.sh <dir> <model>...}
 shift
 here=$(cd "$(dirname "$0")/.." && pwd)
-command -v reel >/dev/null || { echo "reel is not installed: nix profile install github:sezaru/reel" >&2; exit 1; }
+command -v reel >/dev/null || { echo "reel is not installed: add mobile-dev-deps from github:Hexhound/dev-ai-plugins" >&2; exit 1; }
 (($#)) || { echo "name at least one model: $(ls "$here/assets/models" | grep -v NOTICE | tr '\n' ' ')" >&2; exit 1; }
 mkdir -p "$dest"/{fonts,models,lib,raw,final}
 reel init "$dest" >/dev/null

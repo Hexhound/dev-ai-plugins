@@ -1,9 +1,8 @@
 # Runtime dependencies for the `mobile-dev` plugin's skills.
 # A function `pkgs -> [ derivation ]`. The flake auto-discovers this file and exposes
 # `packages.<system>.mobile-dev-deps` from it. Add packages here as skills need them.
-pkgs: [
-  # (store-screenshots renders with reel, its own install: nix profile install
-  # github:sezaru/reel)
+pkgs:
+[
   # app-demand-scout: its appfigures scripts drive a chromium started with
   # --remote-debugging-port (playwright-core connects over CDP).
   pkgs.chromium
@@ -14,3 +13,5 @@ pkgs: [
   # fetch live App Store/Play/review/trends data. First run pulls `req` via Mix.install.
   pkgs.beamPackages.elixir
 ]
+# store-screenshots composes in reel (Linux only).
+++ pkgs.lib.optional (pkgs ? reel) pkgs.reel

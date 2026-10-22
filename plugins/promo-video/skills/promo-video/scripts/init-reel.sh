@@ -5,7 +5,7 @@
 set -euo pipefail
 dest=$1
 here=$(cd "$(dirname "$0")/.." && pwd)
-command -v reel >/dev/null || { echo "reel is not installed (nix profile install <path to the reel repo>)" >&2; exit 1; }
+command -v reel >/dev/null || { echo "reel is not installed: add promo-video-deps from github:Hexhound/dev-ai-plugins" >&2; exit 1; }
 mkdir -p "$dest"
 reel init "$dest" >/dev/null
 rm -f "$dest/scene.ts"

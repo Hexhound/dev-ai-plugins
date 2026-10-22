@@ -23,7 +23,7 @@ design guidelines, phases) read `SKILL.md` — or invoke it:
 
 ## Requirements
 
-- **reel**: `nix profile install github:sezaru/reel` (it brings ffmpeg, the Vulkan loader
+- **reel**: part of the plugin's `mobile-dev-deps` (it brings ffmpeg, the Vulkan loader
   and fallback fonts; the GPU driver comes from the system). `reel docs models` is the
   device reference, `reel docs` the guide.
 - 3D device models are bundled under `assets/models/` (CC-BY-4.0, credits in the NOTICE

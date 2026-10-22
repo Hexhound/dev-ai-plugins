@@ -1,11 +1,18 @@
 {
   description = "dev-ai-plugins — dependency environments for the marketplace plugins";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+
+    # No nixpkgs follows: reel's own pin is what its CI pushes to sezaru.cachix.org,
+    # so following ours would turn the download into a local Rust build.
+    reel.url = "github:sezaru/reel";
+  };
 
   outputs = {
     self,
     nixpkgs,
+    reel,
   }: let
     inherit (nixpkgs) lib;
 
@@ -27,7 +34,13 @@
         && builtins.pathExists (pluginsDir + "/${name}/nix/deps.nix"))
       (builtins.attrNames entries);
 
-    depsFor = pkgs: name: import (pluginsDir + "/${name}/nix/deps.nix") pkgs;
+    # deps.nix files see reel as `pkgs.reel` (absent where reel isn't built).
+    depsFor = pkgs: name:
+      import (pluginsDir + "/${name}/nix/deps.nix")
+      (pkgs
+        // lib.optionalAttrs (reel.packages ? ${pkgs.stdenv.hostPlatform.system}) {
+          inherit (reel.packages.${pkgs.stdenv.hostPlatform.system}) reel;
+        });
   in {
     # Per-plugin dependency bundles + an aggregate `default` with every plugin's deps.
     # Enable a plugin's deps by adding its `<name>-deps` package to your devenv/home config.

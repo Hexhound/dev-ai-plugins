@@ -13,6 +13,8 @@ pkgs:
   # Frame conversion and contact sheets.
   pkgs.imagemagick
 ]
+# The video itself is composed in reel (Linux only).
+++ pkgs.lib.optional (pkgs ? reel) pkgs.reel
 ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux [
   # Prebuilt Remotion + Playwright node_modules (`promo-video-node-modules` prints its path).
   (pkgs.callPackage ./node-modules.nix {})

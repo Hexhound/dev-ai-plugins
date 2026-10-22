@@ -29,7 +29,7 @@ promo/brief.md  promo/storyboard.md  promo/reviews/  promo/music/  promo/capture
 promo/driver/ (capture code)  promo/video/ (reel scenes)  promo/out/
 ```
 
-reel is its own install (`nix profile install` of the reel repo; it brings ffmpeg, the
+reel is in the plugin's Nix deps (`promo-video-deps`; it brings ffmpeg, the
 Vulkan loader and fallback fonts; the GPU driver comes from the system). **Read `reel docs`
 before composing** — the guide, the patterns, and how to check work — and `reel docs api`
 for every function. The plugin's Nix deps (`promo-video-deps`) cover the rest: node,
