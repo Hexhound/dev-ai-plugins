@@ -13,6 +13,7 @@ Worker, not a classic Pages project, and wrangler has no command to attach a Pag
 domain. Both go straight to the Cloudflare API here, with wrangler's own OAuth login
 (`npx wrangler@latest login`) or CLOUDFLARE_API_TOKEN. Stdlib only.
 """
+import argparse
 import json
 import os
 import re
@@ -24,7 +25,6 @@ import urllib.request
 
 API = "https://api.cloudflare.com/client/v4"
 WRANGLER = ["npx", "--yes", "wrangler@latest"]
-WRANGLER_CONFIG = os.path.expanduser("~/.config/.wrangler/config/default.toml")
 # pages.dev answers 403 to urllib's default User-Agent; a browser one gets the real page.
 BROWSER_UA = {"User-Agent": "Mozilla/5.0"}
 
@@ -34,11 +34,30 @@ def die(message):
     sys.exit(1)
 
 
+def wrangler_config():
+    """Where wrangler keeps its login, found the way wrangler finds it: ~/.wrangler when that
+    folder exists, else .wrangler in the config folder ($XDG_CONFIG_HOME, or the platform's)."""
+    home = os.path.expanduser("~")
+    folder = os.path.join(home, ".wrangler")
+    if not os.path.isdir(folder):
+        if os.environ.get("XDG_CONFIG_HOME"):
+            config = os.environ["XDG_CONFIG_HOME"]
+        elif sys.platform == "darwin":
+            config = os.path.join(home, "Library", "Preferences")
+        elif os.name == "nt":
+            appdata = os.environ.get("APPDATA") or os.path.join(home, "AppData", "Roaming")
+            config = os.path.join(appdata, "xdg.config")
+        else:
+            config = os.path.join(home, ".config")
+        folder = os.path.join(config, ".wrangler")
+    return os.path.join(folder, "config", "default.toml")
+
+
 def token():
     if os.environ.get("CLOUDFLARE_API_TOKEN"):
         return os.environ["CLOUDFLARE_API_TOKEN"]
     try:
-        match = re.search(r'^oauth_token = "([^"]+)"', open(WRANGLER_CONFIG).read(), re.M)
+        match = re.search(r'^oauth_token = "([^"]+)"', open(wrangler_config()).read(), re.M)
     except FileNotFoundError:
         match = None
     if not match:
@@ -61,7 +80,14 @@ def api(method, path, body=None, retried=False):
     try:
         data = json.load(urllib.request.urlopen(request))
     except urllib.error.HTTPError as error:
-        data = json.load(error)
+        # Cloudflare's errors are JSON; a proxy or an outage can answer with an HTML page.
+        body = error.read()
+        try:
+            data = json.loads(body)
+        except json.JSONDecodeError:
+            die(f"{method} {path}: HTTP {error.code} {body[:300].decode(errors='replace')}")
+    except urllib.error.URLError as error:
+        die(f"{method} {path}: Cloudflare unreachable ({error.reason})")
     auth_failed = any(e.get("code") in (10000, 9109) for e in data.get("errors") or [])
     if auth_failed and not retried and not os.environ.get("CLOUDFLARE_API_TOKEN"):
         refresh_login()
@@ -122,17 +148,26 @@ def domain(project, hostname):
 
 
 def status(project):
-    data = api("GET", f"/accounts/{account_id()}/pages/projects/{project}/domains")
+    account = account_id()
+    data = api("GET", f"/accounts/{account}/pages/projects/{project}/domains")
     if not data.get("success"):
         die(f"status failed: {errors(data)}")
+    target = None
     for d in data["result"]:
         problem = (d.get("verification_data") or {}).get("error_message") or ""
         print(f"{d['name']}\t{d['status']}\t{problem}")
         if d["status"] != "active":
             # Unanswered for days, a pending domain turns "deactivated": add the record, then
             # run `domain` again.
+            if target is None:
+                # The project's own pages.dev name: <project>.pages.dev unless that was taken,
+                # then Cloudflare added a suffix.
+                found = api("GET", f"/accounts/{account}/pages/projects/{project}")
+                if not found.get("success"):
+                    die(f"status failed: {errors(found)}")
+                target = found["result"]["subdomain"]
             label = d["name"].split(".")[0]
-            print(f"  -> needs DNS record: CNAME {label} -> {project}.pages.dev (proxied)")
+            print(f"  -> needs DNS record: CNAME {label} -> {target} (proxied)")
 
 
 def verify(base_url, email=None):
@@ -158,19 +193,31 @@ def verify(base_url, email=None):
 
 
 def main(argv):
-    if len(argv) >= 2 and argv[0] == "create":
-        create(argv[1])
-    elif len(argv) >= 3 and argv[0] == "deploy":
-        deploy(argv[1], argv[2])
-    elif len(argv) >= 3 and argv[0] == "domain":
-        domain(argv[1], argv[2])
-    elif len(argv) >= 2 and argv[0] == "status":
-        status(argv[1])
-    elif len(argv) >= 2 and argv[0] == "verify":
-        email = argv[argv.index("--email") + 1] if "--email" in argv else None
-        verify(argv[1], email)
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    commands = parser.add_subparsers(dest="command", required=True)
+    commands.add_parser("create", help="classic Pages project").add_argument("project")
+    command = commands.add_parser("deploy", help="wrangler pages deploy, from inside the folder")
+    command.add_argument("project")
+    command.add_argument("site_dir")
+    command = commands.add_parser("domain", help="attach a custom domain")
+    command.add_argument("project")
+    command.add_argument("hostname")
+    commands.add_parser("status", help="the project's domains and their status").add_argument(
+        "project")
+    command = commands.add_parser("verify", help="GET /, /privacy-policy, /icon.png")
+    command.add_argument("base_url")
+    command.add_argument("--email", metavar="ADDRESS", help="must be on both pages")
+    args = parser.parse_args(argv)
+    if args.command == "create":
+        create(args.project)
+    elif args.command == "deploy":
+        deploy(args.project, args.site_dir)
+    elif args.command == "domain":
+        domain(args.project, args.hostname)
+    elif args.command == "status":
+        status(args.project)
     else:
-        die(__doc__)
+        verify(args.base_url, args.email)
 
 
 if __name__ == "__main__":

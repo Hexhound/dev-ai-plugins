@@ -74,7 +74,7 @@ delete the key in Cloud Console (Keys tab) and make a new one.
    passwords come from the environment, never printed.
 5. **Find the closed track's id** with `tracks`, the first time. The default closed track is
    `alpha`; a custom closed track has its own id. Save it in the project's store README.
-6. **Dry run, then publish:**
+6. **Dry run, ask, then publish:**
 
    ```sh
    python3 <this skill>/scripts/play_publish.py upload --package <package> \
@@ -82,8 +82,13 @@ delete the key in Cloud Console (Keys tab) and make a new one.
        --tracks internal,<closed-track> [--mapping <mapping.txt>] --dry-run
    ```
 
-   Run the same command without `--dry-run`. One edit uploads the bundle once and puts that
-   release on both tracks, rolled out in full to their testers, with the notes.
+   Show the developer what the real run will publish: the package, the version code the dry
+   run printed, the version name, the tracks, and every language's "What's new" text. **Wait for
+   an explicit yes.** Publishing can't be undone: testers get the release (a closed track after
+   Play's review) and the version code is used up for good.
+
+   Then run the same command without `--dry-run`. One edit uploads the bundle once and puts
+   that release on both tracks, rolled out in full to their testers, with the notes.
 
    - **`--mapping`:** R8's `mapping.txt` for this bundle, uploaded in the same edit as its
      deobfuscation file, so Play can read crash and ANR reports from the renamed code. Pass it
@@ -108,7 +113,12 @@ delete the key in Cloud Console (Keys tab) and make a new one.
     Products → In-app products (or Subscriptions), change any product's description and save.
     Revert it afterwards.
 - **"APK specifies a version code that has already been used":** bump the version code; Play
-  never takes the same code twice.
+  never takes the same code twice. First check with `tracks` that the last run didn't publish
+  this very build.
+- **A 5xx or a timeout:** nothing is published before the commit, and the script never retries
+  an upload or the commit. When the commit itself gets no clear answer, the script reads the
+  tracks and says whether the release went through; if it didn't, run the same command again
+  with the same version code.
 - **"Only releases with status draft may be created on draft app":** the app was never
   published on any track. The first release has to go out from the Console.
 - **A track missing:** `tracks` shows the ids this app really has; closed tracks made in the

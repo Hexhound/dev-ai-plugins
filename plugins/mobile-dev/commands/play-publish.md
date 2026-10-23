@@ -10,7 +10,8 @@ the skill's step-by-step key instructions and stop there. Otherwise:
 1. Bump the version.
 2. Write the changelog and the "What's new" text.
 3. Run the tests and build the signed AAB.
-4. Dry-run the upload to `internal` and the app's closed track, then publish it.
+4. Dry-run the upload to `internal` and the app's closed track. Show the package, version
+   code, tracks and "What's new" texts, and publish only after the developer's explicit yes.
 5. Report the version code and tracks.
 
 Never promote to open testing or production.

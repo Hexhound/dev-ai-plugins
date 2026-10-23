@@ -178,8 +178,8 @@ Recommend a price from evidence, not instinct:
 1. **Pick 4–8 comparables**: same genre and look, same business model when possible
    (free-to-try + unlock, paid upfront, free + ads), plus the genre's best-known title.
    Search the web for them, then read the live price from their store pages:
-   `node scripts/play-prices.mjs <package.id> …` prints each app's current US price, its
-   in-app purchase range, rating and downloads, from the Play page's own data. Note when a
+   `node <this skill>/scripts/play-prices.mjs <package.id> …` prints each app's current US
+   price, its in-app purchase range, rating and downloads, from the Play page's own data. Note when a
    price is a sale (press coverage of the list price helps: "usually $4.99").
 2. **Place the app**: more content than the comparable → up a step; free-to-try (players
    already got value free) → an impulse price; a crowded free-with-ads genre → keep the

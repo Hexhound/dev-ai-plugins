@@ -101,7 +101,7 @@ python3 -c "from PIL import Image; Image.open('<512 icon>').resize((192,192), Im
 S=<this skill>/scripts/pages.py
 python3 $S create <project>                       # classic Pages project, branch main
 python3 $S deploy <project> <site-dir>             # wrangler pages deploy, from inside the folder
-python3 $S verify https://<project>.pages.dev --email <app_name>@hexhound.dev
+python3 $S verify https://<subdomain> --email <app_name>@hexhound.dev   # the URL create printed
 python3 $S domain <project> <project>.hexhound.dev # optional custom domain
 python3 $S status <project>                        # domain status + the DNS record it needs
 ```
@@ -114,7 +114,8 @@ Steps:
 2. **Confirm** the project name and URL with the user before the first `create` (the
    `pages.dev` name can't be renamed).
 3. `create`, `deploy`, `verify`. All three URLs must return 200 and both pages must contain
-   the email.
+   the email. `create` prints the site's real address: `<project>.pages.dev`, unless that name
+   was taken and Cloudflare added a suffix. Then use the printed one everywhere below.
 4. Replace every placeholder in the app's store docs (listing, Console answers, release
    checklist) with the live policy URL, the site URL and the email.
 
@@ -124,9 +125,10 @@ Redeploy after any edit with the same `deploy` command (or
 ## Gotchas (all hit for real)
 
 - **`wrangler pages project create` makes a Worker** since wrangler 4.147, not a Pages
-  project like the others. If one slipped through, delete the Worker
-  (`npx wrangler@latest delete --name <project>`) and run the script's `create`. Never pass
-  `--force` unless the user asks.
+  project like the others. If one slipped through, show the user the Worker (name, when it
+  was made) and **get their yes** that it's the stray one, not a real Worker of theirs with
+  that name. Then delete it (`npx wrangler@latest delete --name <project>`) and run the
+  script's `create`. Never pass `--force` unless the user asks.
 - **A stray `wrangler.jsonc` in the site folder gets published** as a public file. Don't let
   wrangler write config into the site.
 - **The OAuth token expires** after about an hour. The API answers `Authentication error`
@@ -134,9 +136,9 @@ Redeploy after any edit with the same `deploy` command (or
 - **`pages.dev` returns 403 to Python's default User-Agent.** That's bot protection, not a
   broken deploy. `verify` sends a browser User-Agent.
 - **A custom domain added through the API stays `pending`** ("CNAME record not set"): the
-  wrangler login can't edit DNS. The user adds `CNAME <project> → <project>.pages.dev`
-  (proxied) in the hexhound.dev zone, or opens the domain under Workers & Pages → project →
-  Custom domains and lets the dashboard add it. Left alone for days it becomes
+  wrangler login can't edit DNS. The user adds the CNAME that `status` prints
+  (`<project> → <project>.pages.dev`, proxied) in the hexhound.dev zone, or opens the domain
+  under Workers & Pages → project → Custom domains and lets the dashboard add it. Left alone for days it becomes
   `deactivated`. Add the record, then run `domain` again.
 - **Use CLI deploys, not the dashboard drag-and-drop**: a drag-and-drop upload doesn't run
   Pages Functions (caremate-share needs them), and the CLI keeps every project the same.

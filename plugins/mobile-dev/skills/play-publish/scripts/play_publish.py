@@ -15,7 +15,8 @@ The key: --key <service-account.json>, else $PLAY_SERVICE_ACCOUNT_JSON, else
 it away). `upload` opens one edit, uploads the bundle once, puts it on every track given (each
 track's release becomes this one, rolled out to that track's testers in full), with its "What's
 new" texts, then commits. Play reviews a closed-track release before testers get it. With
---dry-run it validates the edit and throws it away instead of committing.
+--dry-run it validates the edit and throws it away instead of committing. Uploads and the commit
+are never retried; when the commit gets no clear answer, the tracks tell whether it went through.
 
 Release notes: <notes-dir>/<version>.<language>.txt, e.g. 1.2.0.en-US.txt (500 characters at
 most each); every language found is sent.
@@ -28,6 +29,7 @@ import argparse
 import base64
 import json
 import os
+import re
 import stat
 import sys
 import time
@@ -91,27 +93,33 @@ class Play:
         self.session.headers["Authorization"] = f"Bearer {token}"
         self.package = package
 
-    def call(self, method: str, path: str, **kwargs) -> dict:
+    def send(self, method: str, path: str, retry: bool = True, **kwargs) -> requests.Response:
         url = f"{kwargs.pop('base', API)}/{self.package}{path}"
         timeout = kwargs.pop("timeout", 120)
-        # Google's API answers 500/502/503 now and then: wait and try again (a bundle upload's
-        # file is read again from the start).
-        for attempt in range(5):
-            data = kwargs.get("data")
-            if hasattr(data, "seek"):
-                data.seek(0)
+        # Google's API answers 500/502/503 now and then: wait and try again. Only calls that are
+        # safe to repeat retry: an upload or a commit Google carried out but answered 5xx to
+        # would be done twice.
+        attempts = 5 if retry else 1
+        for attempt in range(attempts):
             answer = self.session.request(method, url, timeout=timeout, **kwargs)
-            if answer.status_code not in (500, 502, 503, 504) or attempt == 4:
+            if answer.status_code not in (500, 502, 503, 504) or attempt == attempts - 1:
                 break
             wait = 5 * 2 ** attempt
             print(f"    Google answered {answer.status_code}; trying again in {wait} s",
                   file=sys.stderr)
             time.sleep(wait)
+        return answer
+
+    def call(self, method: str, path: str, **kwargs) -> dict:
+        answer = self.send(method, path, **kwargs)
         if answer.status_code >= 300:
             hint = ""
             if answer.status_code in (401, 403):
                 hint = (" (is the service account invited in Play Console > Users and permissions,"
                         " with release rights for this app?)")
+            elif answer.status_code >= 500:
+                hint = (" (Google's side. Nothing is published before the commit and this edit is"
+                        " thrown away: run the same command again, with the same version code)")
             fail(f"{method} {path}: {answer.status_code} {answer.text[:500]}{hint}")
         return answer.json() if answer.text else {}
 
@@ -122,26 +130,42 @@ class Play:
         self.session.delete(f"{API}/{self.package}/edits/{edit}", timeout=60)
 
 
-def list_tracks(play: Play) -> None:
+def read_tracks(play: Play) -> list[dict]:
+    """Every track and its releases, from an edit opened and thrown away (read-only)."""
     edit = play.open_edit()
     try:
-        tracks = play.call("GET", f"/edits/{edit}/tracks").get("tracks", [])
-        for track in tracks:
-            releases = track.get("releases", [])
-            print(f"{track['track']}:")
-            if not releases:
-                print("    (empty)")
-            for release in releases:
-                print(f"    {release.get('name', '?')}  codes {release.get('versionCodes', [])}"
-                      f"  {release.get('status')}")
+        return play.call("GET", f"/edits/{edit}/tracks").get("tracks", [])
     finally:
         play.drop_edit(edit)
 
 
+def list_tracks(play: Play) -> None:
+    tracks = read_tracks(play)
+    for track in tracks:
+        releases = track.get("releases", [])
+        print(f"{track['track']}:")
+        if not releases:
+            print("    (empty)")
+        for release in releases:
+            print(f"    {release.get('name', '?')}  codes {release.get('versionCodes', [])}"
+                  f"  {release.get('status')}")
+
+
+def tracks_holding(play: Play, code: int, tracks: list[str]) -> list[str]:
+    """Which of `tracks` hold a release with version code `code`."""
+    return [t["track"] for t in read_tracks(play) if t["track"] in tracks
+            and any(str(code) in r.get("versionCodes", []) for r in t.get("releases", []))]
+
+
 def read_notes(notes_dir: str, version: str) -> list[dict]:
     notes = []
+    # 1.2.0.en-US.txt, not 1.2.0.1.en-US.txt (another version's notes).
+    name = re.compile(rf"{re.escape(version)}\.([A-Za-z]{{2,3}}(?:-[A-Za-z0-9]+)?)\.txt")
     for path in sorted(Path(notes_dir).glob(f"{version}.*.txt")):
-        language = path.name[len(version) + 1:-len(".txt")]
+        match = name.fullmatch(path.name)
+        if not match:
+            continue
+        language = match.group(1)
         text = path.read_text().strip()
         if len(text) > NOTES_LIMIT:
             fail(f"{path} is {len(text)} characters; Play takes {NOTES_LIMIT} at most")
@@ -149,6 +173,33 @@ def read_notes(notes_dir: str, version: str) -> list[dict]:
     if not notes:
         fail(f"no release notes {notes_dir}/{version}.<language>.txt")
     return notes
+
+
+def commit(play: Play, edit: str, code: int, tracks: list[str]) -> bool:
+    """Commits the edit once. When Google gives no clear answer (5xx, a timeout) the commit may
+    have gone through anyway: the tracks say which, so a failure is never reported for a release
+    that is live (the next attempt would bump the version and publish it twice)."""
+    try:
+        answer = play.send("POST", f"/edits/{edit}:commit", retry=False)
+        if answer.status_code < 300:
+            return True
+        if answer.status_code < 500:
+            fail(f"POST /edits/{edit}:commit: {answer.status_code} {answer.text[:500]}")
+        outcome = f"Google answered {answer.status_code}"
+    except requests.RequestException as error:
+        outcome = f"no answer from Google ({type(error).__name__})"
+    print(f"    commit: {outcome}; checking the tracks", file=sys.stderr)
+    time.sleep(15)
+    holding = tracks_holding(play, code, tracks)
+    if set(holding) == set(tracks):
+        print(f"    the release is on {holding}: the commit went through", file=sys.stderr)
+        return True
+    if holding:
+        fail(f"commit: {outcome}, and only {holding} of {tracks} hold version code {code}."
+             " Check the tracks with `tracks` (or in the Console) before running anything again.")
+    fail(f"commit: {outcome}; no track holds version code {code}, so nothing was published."
+         " Run the same command again, with the same version code.")
+    return False
 
 
 def upload(play: Play, aab: str, tracks: list[str], version: str, notes: list[dict],
@@ -168,7 +219,7 @@ def upload(play: Play, aab: str, tracks: list[str], version: str, notes: list[di
         print(f"==> uploading {bundle.name} ({bundle.stat().st_size / 1e6:.1f} MB)")
         with bundle.open("rb") as data:
             uploaded = play.call("POST", f"/edits/{edit}/bundles", base=UPLOAD, timeout=900,
-                                 params={"uploadType": "media"}, data=data,
+                                 retry=False, params={"uploadType": "media"}, data=data,
                                  headers={"Content-Type": "application/octet-stream"})
         code = int(uploaded["versionCode"])
         print(f"    versionCode {code}")
@@ -177,8 +228,8 @@ def upload(play: Play, aab: str, tracks: list[str], version: str, notes: list[di
                   f" ({Path(mapping).stat().st_size / 1e6:.1f} MB)")
             with Path(mapping).open("rb") as data:
                 play.call("POST", f"/edits/{edit}/apks/{code}/deobfuscationFiles/proguard",
-                          base=UPLOAD, timeout=300, params={"uploadType": "media"}, data=data,
-                          headers={"Content-Type": "application/octet-stream"})
+                          base=UPLOAD, timeout=300, retry=False, params={"uploadType": "media"},
+                          data=data, headers={"Content-Type": "application/octet-stream"})
         for track in tracks:
             play.call("PUT", f"/edits/{edit}/tracks/{track}", json={
                 "track": track,
@@ -191,8 +242,7 @@ def upload(play: Play, aab: str, tracks: list[str], version: str, notes: list[di
             play.call("POST", f"/edits/{edit}:validate")
             print("==> dry run: the edit is valid; thrown away, nothing published")
         else:
-            play.call("POST", f"/edits/{edit}:commit")
-            committed = True
+            committed = commit(play, edit, code, tracks)
             print("==> committed. Internal testers get it in minutes; a closed track goes"
                   " through Play's review first.")
     finally:
