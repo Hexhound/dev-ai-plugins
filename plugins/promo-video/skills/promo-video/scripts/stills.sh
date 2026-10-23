@@ -4,6 +4,7 @@
 # Each still bundles the project again (about 25 s): JOBS run at once. The narrator-vlog
 # skill uses COMPOSITION=Vlog.
 set -euo pipefail
+. "$(dirname "$0")/browser.sh"
 video=$1 sheet=$(realpath -m "$2"); shift 2
 export COMPOSITION=${COMPOSITION:-Promo}
 cd "$video" && rm -rf out/stills && mkdir -p out/stills

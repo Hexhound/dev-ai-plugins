@@ -11,7 +11,7 @@ Not intended for public distribution.
 | `dev-workflow` | Provider- and language-neutral agentic workflow: feature/refactor/bugfix playbooks, a fresh-context reviewer subagent, and a deterministic verify gate |
 | `elixir-dev` | Elixir / Phoenix / LiveView backend: stack conventions + the `mix precommit` verify-gate wiring `dev-workflow` enforces |
 | `mobile-dev` | Flutter-based iOS & Android app development: skills, code guidelines, MCP servers |
-| `promo-video` | Polished promo / ad videos of desktop, web and mobile apps and games: scripted real-app capture (Qt, web, Godot), Remotion composition, beat-synced CC BY music, critic-reviewed storyboards, re-shooting a finished promo when the app changes. Also narrated devlogs / vlogs (`narrator-vlog`): before/after footage, a free offline narrator voice (Kokoro), subtitles, a pointer on the differences |
+| `promo-video` | Polished promo / ad videos of desktop, web and mobile apps and games: scripted real-app capture (Qt, web, Godot), reel composition, beat-synced CC BY music, narrated tutorials, critic-reviewed storyboards, re-shooting a finished promo when the app changes. Also narrated devlogs / vlogs (`narrator-vlog`): before/after footage, a free offline narrator voice (Kokoro), subtitles, a pointer on the differences |
 | `roam-dev` | Building on roam-sync: E2E-encrypted offline-first multi-device sync, LAN pairing, nearby sharing |
 | `asset-extract` | 3D models out of web pages as files: from a Zen/Firefox tab's disk cache (no browser automation), unpacked for Blender, with textures and a preview; or generated on hi3d.ai from an image (headless chromium, throwaway account) |
 | `asset-optimize` | Make heavy 3D models game-ready in Blender: triangle-budget variants (all from 40k to 1k, or a specific count) saved one .blend each, with the original material and/or an unlit albedo look |
@@ -93,11 +93,12 @@ it with any language pack. Its Stop hook needs `jq` on PATH; it fails open witho
 ```
 
 Then `/promo-video:promo-video <app dir>`. Add `promo-video-deps` to the app's devenv (see
-[Dependencies](#dependencies-nix-flake)) — it brings node, chromium, ffmpeg, aubio, imagemagick
-and a prebuilt Remotion + Playwright `node_modules` (Remotion's compositor patched for NixOS),
-so promo projects need no `npm install`. Without Nix it falls back to `npm install` and a
-NumPy beat tracker. Remotion is free for individuals and companies of up to 3 people; larger
-companies need a Remotion company licence.
+[Dependencies](#dependencies-nix-flake)) — it brings reel (the videos are composed in it), node,
+chromium, ffmpeg, aubio, imagemagick and a prebuilt Playwright `node_modules` for web capture,
+so promo projects need no `npm install`. Older promos made with Remotion still render (its
+`node_modules` is in the deps too); Remotion is free for individuals and companies of up to 3
+people, larger companies need a Remotion company licence. Without Nix, the Remotion projects
+fall back to `npm install`, and beat tracking to a NumPy stand-in for aubio.
 
 When the app's look changes after a promo was made (new art, characters, UI), run it again:
 it offers to re-shoot the finished promo (same cut, new footage). The mobile-dev plugin's
@@ -107,10 +108,10 @@ it offers to re-shoot the finished promo (same cut, new footage). The mobile-dev
 YouTube video of what changed: it asks every question first (the story in your words, the
 language, the voice from samples, who speaks, length, topics, footage, before/after, music,
 the pointer), then writes and voices the script, captures before/after footage (the old
-version from a git worktree), composes it with subtitles and a pointer on the differences,
-and has the `vlog-critic` agent review the plan and the render. The voice is Kokoro-82M
-(Apache 2.0), run offline on the CPU through kokoro-onnx: `voice-setup.sh` makes a Python
-venv and downloads the model (~350 MB) to `~/.cache/kokoro` once. It also writes the
+version from a git worktree), composes it in Remotion with subtitles and a pointer on the
+differences, and has the `vlog-critic` agent review the plan and the render. The voice is
+Kokoro-82M (Apache 2.0), run offline on the CPU through kokoro-onnx: `voice-setup.sh` makes a
+Python venv and downloads the model (~350 MB) to `~/.cache/kokoro` once. It also writes the
 thumbnail and the YouTube title, description and chapters.
 
 #### Extracting assets from the browser (any machine)

@@ -7,6 +7,7 @@
 set -euo pipefail
 vlog=$(cd "$1" && pwd)
 here=$(cd "$(dirname "$0")" && pwd)
+. "$here/../../promo-video/scripts/browser.sh"
 video=$vlog/video
 out=$(realpath -m "${2:-$vlog/out/$(basename "$vlog").mp4}")
 mkdir -p "$(dirname "$out")" "$video/out"

@@ -99,8 +99,9 @@ the game's own project (`res://tools/promo/`, Godot can't load scripts from a fo
   combo chain of ×2…×4 whose merges fit the beats at real speed"), and set the frames in the
   composition. Re-check after every re-record.
 - **Sound**: Godot doesn't record audio with these frames. Place the game's own sound files
-  at the markers in the composition (`<Sequence><Audio/></Sequence>` per cue) and mix them
-  with the music (`scripts/mix-sfx.sh`).
+  at the markers in the composition and mix them with the music (SKILL.md, PHASE 5: the
+  app's own sounds; `<Sequence><Audio/></Sequence>` cues and `scripts/mix-sfx.sh` in a
+  Remotion project).
 - **Cost**: about 0.3–1.2 s a frame at 1620×3240 (readback + PNG), so a 12-segment promo
   takes 15–45 min to record; record segments in parallel processes when the machine allows.
 - **Look**: the game's own fonts and shaders render as in the game; turn off debug

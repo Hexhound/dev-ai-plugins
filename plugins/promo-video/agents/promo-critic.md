@@ -16,6 +16,10 @@ make it look like a top studio made it, not to approve it.
 - The playbook: `references/craft.md` in the promo-video skill (read it fully first).
 - Visual pass only: contact sheets and stills (image files) of the rendered video.
   Look at the images; judge what is actually on screen, not what the storyboard intended.
+- Tutorials (narrated how-tos): also `references/tutorials.md` — grade against its
+  checklist instead of craft §4/§7 (captions, not varied text treatments; the voice sets
+  the pace, not the beat). Strips of stills around every tap and every crossfade, in
+  order, are the evidence: check each ring appears before its tap and nothing flickers.
 
 ## How to review
 
@@ -41,7 +45,7 @@ IMPROVEMENTS (should fix):
 - [S<n>] <problem> → <concrete fix>
 POLISH (nice to have):
 - ...
-CHECKLIST: 1 ✓/✗ … 12 ✓/✗ (one line each)
+CHECKLIST: 1 ✓/✗ … 12 ✓/✗ (one line each; for a tutorial, its 1–8)
 ```
 
 Rank by impact on how polished the result looks. Be blunt; do not pad with praise. Do not

@@ -9,6 +9,7 @@
 # sfxGainDb (default 8) raises every effect; set each cue's own level with its <Audio volume>.
 # The composition is `Promo` at 60 fps (the engine's defaults).
 set -euo pipefail
+. "$(dirname "$0")/browser.sh"
 video=$(realpath "$1") track=$(realpath "$2") music=$(realpath "$3") gain=${4:-8}
 (cd "$video" && npx remotion render src/index.ts Promo out/sfx.wav --codec=wav --log=error)
 # The composition's length (the effects can end early, on their last sound).
