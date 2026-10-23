@@ -189,6 +189,23 @@ landscape screenshot.
 
 ---
 
+## PHASE 6 — Deliver: what to upload where
+
+When the set is approved, always finish with a table the user can follow in the store
+console without guessing — for Google Play:
+
+| Console field | File | Size |
+|---|---|---|
+| Phone screenshots (in order) | `final/01_….png` … | 1080 × 2160 |
+| Feature graphic | `final/feature_graphic.png` | 1024 × 500 |
+| 7-inch / 10-inch tablet screenshots | `final/tablet/…` | e.g. 1600 × 2560 |
+| App icon | the launcher icon, 512 × 512 32-bit PNG | |
+
+Check every file programmatically (size, no alpha for screenshots and the feature graphic,
+the 2:1 side rule) and say so. Then give the **rest of the listing field by field** (name,
+short and full description with their character counts, category, contact, the in-app
+product and its icon) with the `play-console-setup` skill, and save it next to the art.
+
 ## DESIGN GUIDELINES
 
 This is the craft. Apply it while designing — it's what separates a set that converts from

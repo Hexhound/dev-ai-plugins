@@ -14,4 +14,7 @@ pkgs: [
   # app-demand-scout: single-file Elixir scripts (scout/review_miner/aso_generator/…) that
   # fetch live App Store/Play/review/trends data. First run pulls `req` via Mix.install.
   pkgs.beamPackages.elixir
+  # store-privacy-site: scripts/pages.py is stdlib python3; it deploys with
+  # `npx wrangler@latest`, which needs node.
+  pkgs.nodejs
 ]

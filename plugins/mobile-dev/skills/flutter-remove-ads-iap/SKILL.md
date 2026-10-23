@@ -27,10 +27,15 @@ Pairs with `flutter-admob-native-ads` (the flag it flips hides every ad slot) an
 
 ## 1. Store console setup
 
-- **Play Console** → Monetize → Products → **In-app products** → create a *managed product*
-  with ID `remove_ads` (must match the code). Activate it. The app must be uploaded to at
-  least an internal-testing track and the tester account opted in, or `queryProductDetails`
-  returns it as *not found*.
+- **Play Console** → Monetize with Play → Products → **One-time products** → create one
+  with ID `remove_ads` (must match the code), one purchase option of type **Buy** marked
+  **backwards compatible** (what `in_app_purchase` buys when it names no option), a price,
+  then Activate. The app must be uploaded to at least an internal-testing track and the
+  tester account opted in, or `queryProductDetails` returns it as *not found*.
+- Give the user **every field of those Console screens** with its value — the
+  `play-console-setup` skill has them all (limits, the product icon rules, price research) —
+  and write its **Test purchases** steps (license testers, the always-approves test card,
+  refund-and-revoke to re-test, promo codes) into the project's store README.
 - **App Store Connect** (when iOS exists) → a **Non-Consumable** with the same product ID.
 
 ## 2. Dependency & the product ID

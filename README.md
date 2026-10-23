@@ -54,6 +54,12 @@ Our `mobile-dev` plugin, alongside the official Flutter agent skills
 /plugin install flutter@flutter-skills
 ```
 
+`/mobile-dev:play-publish` releases an Android app (any engine) to Google Play's internal
+and closed testing tracks from the command line: version bump, changelog and "What's new",
+signed AAB, then an upload through the Play Developer API as a service account (dry run
+first). Its skill has the steps to make the service account key; promoting further stays a
+Console step.
+
 `mobile-dev` also ships a `PreToolUse` hook that blocks unbounded `flutter run` /
 `adb logcat` from flooding the conversation — it activates automatically once the plugin
 is enabled (needs `jq` on PATH; see [Dependencies](#dependencies-nix-flake)).
