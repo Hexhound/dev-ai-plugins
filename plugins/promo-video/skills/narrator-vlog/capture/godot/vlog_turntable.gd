@@ -129,7 +129,9 @@ func _process(_delta: float) -> void:
 			print("vlog_turntable: %s %d frames" % [_name, _frames])
 			get_tree().quit()
 			return
-	var t: float = maxf(_frame - 2, 0) / 30.0
+	# get_image() above read the frame drawn after the last call: the pose set now is saved
+	# next time, as frame _frame - 1, so frame n shows t = n / 30 (and the last pose is saved).
+	var t: float = maxf(_frame - 1, 0) / 30.0
 	if _arc:
 		_place_camera(t)
 	elif _frames > 1:

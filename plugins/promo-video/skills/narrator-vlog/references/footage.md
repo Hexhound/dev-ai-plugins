@@ -5,10 +5,15 @@ All footage is the real product, recorded by script into `capture/<clip>/NNNN.pn
 `vlog/<slug>/capture.sh` (steps by argument: `capture.sh chibis props night`), so a re-shoot
 is one command and the README can point at it.
 
+A phone build in portrait: the engine's views take 16:9 frames only, so pad each frame to
+16:9 at its own height, in the look's background colour, before `prep-vlog.sh` (1080×2160 →
+3840×2160): `magick mogrify -background '<bg>' -gravity center -extent 3840x2160
+capture/<clip>/*.png`. Or record the phone UI centred in a 16:9 viewport.
+
 ## The old version: a git worktree
 
 ```bash
-git worktree add ../<app>_v1 <tag or commit>     # e.g. v1.0.0
+git worktree add ../<app>_v1 <tag or commit>     # e.g. v1.0.0, never a branch name
 cp -r tools/vlog ../<app>_v1/tools/               # the same capture tools in both
 # copy any recorder the old version lacks (the promo recorder, a turntable)
 godot --headless --path ../<app>_v1 --import       # Godot: import once
@@ -16,22 +21,32 @@ godot --headless --path ../<app>_v1 --import       # Godot: import once
 
 - The tools must only use what the old version has too; anything newer goes in the
   turntable's `setup=` script, written per version.
-- The worktree checks out a branch: if that's `master` and the user later wants to merge
-  into it, remove the worktree first (`git worktree remove --force ../<app>_v1`); it's
-  disposable, and `capture.sh` says how to make it again.
+- Check out the old release's tag or commit (a detached worktree), not a branch: a branch
+  such as `master` has moved on since the release, and a worktree holding it blocks working
+  on it here. Remove the worktree when done (`git worktree remove --force ../<app>_v1`);
+  it's disposable, and `capture.sh` says how to make it again.
 - The same settings for both versions (seed, resolution, camera, time of day): the
   comparison is only fair, and wipes only line up, when only the version differs.
 
 ## Models: the turntable (Godot: `capture/godot/vlog_turntable.gd`)
 
 Copy `vlog_turntable.gd` and `.tscn` to `res://tools/vlog/`. It shoots any scene or model
-on a plain stage with the camera fitted to it:
+on a plain stage with the camera fitted to it, at 1920×1080 (close-ups: `zoom=`, not a
+crop):
+
+```bash
+godot --fixed-fps 30 --disable-vsync --path . res://tools/vlog/vlog_turntable.tscn -- \
+  out="$PWD/vlog/<slug>/capture" name=<clip> scene=res://<model>.tscn <arguments below>
+```
+
+`out=` is an absolute path (it defaults to `/tmp/vlog`) and `name=` the clip (default
+`clip`); the frames go to `<out>/<name>/NNNN.png`.
 
 | Shot | Arguments | For |
 |---|---|---|
 | The model, swinging | `scene=… sway=35 period=10 seconds=10 yaw=-20` | "the old one / the new one": a ¾ front view that never shows the back |
 | Wireframe | `… wireframe=on bg=#2b1a33` | triangle density, side by side with a counter |
-| X-ray | `… overdraw=on`, then `heat-xray.py capture/<clip>_xray` | surfaces hidden inside (a wireframe can't show them) |
+| X-ray | `… overdraw=on`, then `$PY -I heat-xray.py capture/<clip>_xray` (the voice venv: NumPy, Pillow) | surfaces hidden inside (a wireframe can't show them) |
 | Line-up | `scene=a,b,c,… rows=2 fit=0.95` | "every character", same size, one frame |
 | A set or level | `scene=… arc=on target=x,y,z distance=9 pitch=20 sweep=16 freeze=on` | props, levels: a slow camera arc, nobody moving |
 | Expressions | `… turns=0 yaw=0 zoom=2 anim=blink,happy,surprised` | faces; make it as long as its section |

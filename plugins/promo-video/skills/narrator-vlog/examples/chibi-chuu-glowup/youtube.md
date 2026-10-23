@@ -25,7 +25,7 @@ next to the new ones.
 
 Chapters
 0:00 Intro
-0:09 The chibis: art and triangles
+0:10 The chibis: art and triangles
 0:44 Textures and shading
 0:58 Props
 1:13 Day, night and all seven modes

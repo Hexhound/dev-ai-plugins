@@ -5,8 +5,10 @@
 #   gives the browser alone a TMPDIR (and disk cache) in RAM; Remotion's bundle stays where
 #   it was, since it copies the whole of public/ (the captures) into it. The wrapper's name
 #   keeps "headless-shell", which is how the config tells the mode.
-CHROMIUM=${CHROMIUM:-$(command -v chrome-headless-shell)}
-if [[ -d /dev/shm ]]; then
+# - Without chrome-headless-shell (no Nix deps), CHROMIUM stays empty and Remotion uses its
+#   own browser; `|| true` keeps `set -e` in the sourcing script from exiting on it silently.
+CHROMIUM=${CHROMIUM:-$(command -v chrome-headless-shell || true)}
+if [[ -n $CHROMIUM && -d /dev/shm ]]; then
   browser_tmp=$(mktemp -d /dev/shm/remotion-browser-XXXXXX)
   trap 'rm -rf "$browser_tmp"' EXIT
   printf '#!/bin/sh\nTMPDIR=%s exec %s --disk-cache-dir=%s/cache "$@"\n' \

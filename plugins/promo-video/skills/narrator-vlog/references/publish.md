@@ -21,7 +21,8 @@ stickers off the edges.
   least 10 seconds** long (YouTube ignores the list otherwise): merge short sections.
 - **Credits**: the music's line exactly as its licence asks ("Music: "Cozy Horizons" from
   Wholesome Place Vol. 1 by Kounine"), "Narration: Kokoro-82M text-to-speech, voice
-  af_heart (Apache 2.0)", the studio.
+  af_heart (Apache 2.0)" (the end card has the short form, "Voice: Kokoro (af_heart)"),
+  the studio.
 - **Tags**: the product, devlog, the engine, the genre, before and after.
 - **Settings to mention**: category (Gaming for a game); the audience question is the
   user's call; the synthetic narrator: YouTube asks to disclose realistic synthetic people
@@ -39,7 +40,7 @@ framed so, what the critic found and what was changed).
 ## Before reporting
 
 - Contact sheet of the final file (promo-video's `contact-sheet.sh out/<slug>.mp4 sheet.jpg
-  2`) and a look at it.
+  <seconds ÷ 30>`: it tiles 30 frames, so 4 for a 2-minute vlog) and a look at it.
 - Loudness: integrated about −14 LUFS, true peak under −1 dB (`render-vlog.sh` prints both).
 - Duration within the user's limit.
 - Licensed music stays out of public repos (git-ignore `assets/` if the repo is public).

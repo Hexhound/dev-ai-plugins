@@ -4,7 +4,7 @@
 #   devlog/capture.sh [step ...]     steps: chibis props worlds night f1 (default: all)
 # The old game is a git worktree of v1.0.0 (V1, default ../chibi_chuu_v1) with this branch's
 # devlog tools and promo recorder copied in (they only use what v1.0.0 has too):
-#   git worktree add ../chibi_chuu_v1 master
+#   git worktree add ../chibi_chuu_v1 v1.0.0     # the release tag (detached), not a branch
 #   cp -r tools/devlog ../chibi_chuu_v1/tools/
 #   cp tools/promo/promo_play.gd tools/promo/promo_recorder.gd ../chibi_chuu_v1/tools/promo/
 #   godot --headless --path ../chibi_chuu_v1 --import

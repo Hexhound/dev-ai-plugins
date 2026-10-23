@@ -11,6 +11,7 @@ from pathlib import Path
 import numpy as np
 import kokoro_onnx
 from kokoro_onnx import Kokoro
+from kokoro_onnx.config import MAX_PHONEME_LENGTH
 
 HOME = Path(os.environ.get("KOKORO_HOME", Path.home() / ".cache/kokoro"))
 LANGS = {"a": "en-us", "b": "en-gb", "e": "es", "f": "fr-fr", "h": "hi", "i": "it", "j": "ja",
@@ -18,7 +19,10 @@ LANGS = {"a": "en-us", "b": "en-gb", "e": "es", "f": "fr-fr", "h": "hi", "i": "i
 
 
 def _create_audio(self, phonemes, voice, speed):
-    """kokoro-onnx 0.4.7 sends `speed` as int32; the v1.0 model wants a float."""
+    """kokoro-onnx 0.4.7 sends `speed` as int32; the v1.0 model wants a float. Otherwise as
+    0.4.7's: a batch past the model's 510 phonemes is cut (create() splits at punctuation,
+    so only a long run without any gets here)."""
+    phonemes = phonemes[:MAX_PHONEME_LENGTH]
     tokens = np.array(self.tokenizer.tokenize(phonemes), dtype=np.int64)
     style = np.array(voice[len(tokens)], dtype=np.float32)
     inputs = {"input_ids": [[0, *tokens, 0]], "style": style,

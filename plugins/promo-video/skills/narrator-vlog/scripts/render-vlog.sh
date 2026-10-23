@@ -31,7 +31,10 @@ for pass in 1 2 3 4; do
   [[ -z $off ]] && break
   gain=$(awk -v g="$gain" -v d="$off" 'BEGIN {print g + 1.5 * d}')
 done
-ffmpeg -loglevel error -y -framerate 60 -i "$video/out/seq/element-%04d.jpeg" -i "$video/out/mix.wav" \
+# Remotion pads frame numbers to the last frame's digits (element-00000.jpeg past 10000 frames,
+# 2:46 at 60 fps).
+first=("$video"/out/seq/element-*.jpeg); first=${first[0]##*-}; first=${first%.jpeg}
+ffmpeg -loglevel error -y -framerate 60 -i "$video/out/seq/element-%0${#first}d.jpeg" -i "$video/out/mix.wav" \
   -map 0:v -map 1:a -c:v libx264 -preset slow -crf 17 -pix_fmt yuv420p -c:a aac -b:a 192k -ar 48000 \
   -shortest -movflags +faststart "$out"
 python3 "$here/make-srt.py" "$vlog" > "${out%.mp4}.en.srt"

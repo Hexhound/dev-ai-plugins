@@ -24,7 +24,8 @@ for dir in "$vlog"/capture/*/; do
     xargs -P "$(nproc)" -I{} magick "$dir/{}.png" -resize '1920x1080>' -quality 90 "$pub/capture/$name/{}.jpg"
 done
 if [[ -f $vlog/derived.txt ]]; then
-  while read -r name source crop; do
+  # `|| [[ -n $name ]]`: the last line counts without a newline after it too.
+  while read -r name source crop || [[ -n $name ]]; do
     [[ -z $name || $name == \#* ]] && continue
     if [[ ${#PICK[@]} -gt 0 && " ${PICK[*]} " != *" $name "* ]]; then continue; fi
     rm -rf "$pub/capture/$name" && mkdir -p "$pub/capture/$name"

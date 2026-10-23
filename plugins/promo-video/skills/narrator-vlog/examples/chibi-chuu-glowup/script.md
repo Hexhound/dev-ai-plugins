@@ -1,6 +1,6 @@
 # Chibi Chuu devlog: the chibis' glow-up
 
-Narrator: Kokoro `af_heart` (Apache 2.0), speaking as "we". English. About 1:55.
+Narrator: Kokoro `af_heart` (Apache 2.0), speaking as "we". English. 1:38.
 One line per voice clip (`id: text`); the edit is timed to these clips. A `|` marks where the
 subtitles break a line (the voice doesn't say it); without one they break at commas.
 

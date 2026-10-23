@@ -3,8 +3,9 @@ description: Make a narrated YouTube devlog / vlog of an app or game — before/
 argument-hint: [app project directory] [what the video is about]
 ---
 
-Invoke the **narrator-vlog** skill and run it for the app at `$ARGUMENTS` (the current
-project if empty).
+Invoke the **narrator-vlog** skill. The first argument is the app's project directory (the
+current project if empty); the rest, if any, is the topic: the draft answer to the
+interview's first question (the story), which the user can still add to.
 
 Ask every interview question first (`references/interview.md`), one question per tool call,
 voice samples included, and nothing after that: the user wants no questions in the middle of

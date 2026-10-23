@@ -183,18 +183,20 @@ export const buildSubs = (lines: Line[], starts: Record<string, number>): Sub[] 
     }
     const total = chunks.reduce((n, c) => n + c.length, 0);
     let time = starts[l.id];
-    for (const chunk of chunks) {
+    chunks.forEach((chunk, i) => {
       const len = (l.seconds * chunk.length) / total;
-      out.push({at: s(time), until: s(time + len) + 6, text: chunk});
+      // A line's last chunk stays 6 frames past the voice; the others hand over on time.
+      out.push({at: s(time), until: s(time + len) + (i === chunks.length - 1 ? 6 : 0), text: chunk});
       time += len;
-    }
+    });
   }
   return out;
 };
 
 export const Subtitles: React.FC<{f: number; subs: Sub[]}> = ({f, subs}) => {
   const t = useTheme();
-  const sub = subs.find((x) => f >= x.at && f < x.until);
+  // The latest one to start, so a line's lingering last chunk gives way to the next line.
+  const sub = subs.reduce<Sub | undefined>((on, x) => (f >= x.at && f < x.until && (!on || x.at >= on.at) ? x : on), undefined);
   if (!sub) return null;
   return (
     <div style={{position: 'absolute', left: 0, right: 0, bottom: 34, textAlign: 'center', opacity: Math.min(1, (f - sub.at) / 6)}}>

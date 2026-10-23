@@ -9,6 +9,15 @@ It was made before the engine was extracted, so `Devlog.tsx` defines its own ver
 what is now `engine/src/vlog` (`Clip`, `View`, `Card`, `Split`, `Wipe`, `Paw` = `Pointer`,
 `Counter`, `HeatKey` = `Key`, `RoundWord` = `OutlineWord`, the music bed).
 
+`capture.sh` predates the shipped tools too: it runs the game's own capture scenes (its
+`tools/devlog/turntable.tscn` and `heat_xray.py`, the promo's `promo_world.tscn`, an
+`f1_panel.tscn`) from a `devlog/` folder; none of them ship here. With
+`capture/godot/vlog_turntable.gd` its turntable arguments become: `id=` / `level=` →
+`scene=` plus a `setup=` script (the game's materials, the detail level); `clips=` →
+`anim=`; `lineup=on` → `scene=a,b,… rows=`; `props=on` → `scene=<the menu> arc=on
+freeze=on` with a `setup=` that empties it. The folder is now `vlog/<slug>/` and the script
+`heat-xray.py`.
+
 | File | What it shows |
 |---|---|
 | `script.md` | 13 lines; the user's own reasons ("made fast, just to test the physics"); a `|` fixing a bad subtitle split |

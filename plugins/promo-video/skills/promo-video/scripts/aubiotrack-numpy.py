@@ -89,8 +89,10 @@ def main():
     samples, rate = read_wav(path)
     env, fps = onset_envelope(samples, rate)
     period = tempo_period(env, fps)
+    # A sharp onset (a drum hit) peaks the flux as it enters the window's last hop, not at the
+    # window's start: about 36-39 ms later on clicks and snares (a pure tone's onset peaks later).
     for frame in track(env, period):
-        print(f"{frame / fps:.6f}")
+        print(f"{(frame * HOP + WIN - HOP) / rate:.6f}")
 
 
 if __name__ == "__main__":

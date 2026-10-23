@@ -62,8 +62,8 @@ change first, the whole-product montage last.
 ## 7. Footage
 
 Which build to show: desktop landscape (Recommended for YouTube, 16:9), phone portrait in
-a 16:9 frame, or both. And from where: the real app captured by script (always; never mock
-the product).
+a 16:9 frame (its frames padded to 16:9: `footage.md`), or both. And from where: the real
+app captured by script (always; never mock the product).
 
 ## 8. Before and after
 

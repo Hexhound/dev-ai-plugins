@@ -107,9 +107,10 @@ the game's own project (`res://tools/promo/`, Godot can't load scripts from a fo
 - **Look**: the game's own fonts and shaders render as in the game; turn off debug
   overlays; pick the detail level the promo shows (e.g. full detail on a phone where a
   low-detail setting starts on).
-- Example: Chibi Chuu's `tools/promo/` (`promo_play.gd` records a mode's run with drop / land /
-  merge / combo markers, `promo_menu.gd` a title-screen grab-and-throw, `promo_merge.gd` a
-  staged merge) and `play_store/promo/driver/capture_all.sh`.
+- Example, in the game's own repo (not shipped here; only `promo_recorder.gd` is): Chibi
+  Chuu's `tools/promo/` (`promo_play.gd` records a mode's run with drop / land / merge /
+  combo markers, `promo_menu.gd` a title-screen grab-and-throw, `promo_merge.gd` a staged
+  merge) and `play_store/promo/driver/capture_all.sh`.
 
 ## GTK4 (e.g. chatot — Go + gotk4) — recipe
 

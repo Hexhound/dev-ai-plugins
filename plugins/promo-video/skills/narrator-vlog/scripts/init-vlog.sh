@@ -10,10 +10,15 @@ here=$(cd "$(dirname "$0")/.." && pwd)
 promo=$(cd "$here/../promo-video" && pwd)
 dest=$vlog/video
 mkdir -p "$dest/src/data" "$dest/public"
-cp -n "$promo/engine/remotion.config.ts" "$promo/engine/tsconfig.json" "$dest/"
+# Kept if there: a test, not `cp -n` (which exits 1 on a skipped file in some coreutils).
+for f in "$promo/engine/remotion.config.ts" "$promo/engine/tsconfig.json"; do
+  [[ -e $dest/${f##*/} ]] || cp "$f" "$dest/"
+done
 [[ -f $dest/package.json ]] || printf '{\n  "name": "vlog",\n  "private": true,\n  "scripts": {"studio": "remotion studio src/index.ts"}\n}\n' > "$dest/package.json"
 rm -rf "$dest/src/vlog" && cp -r "$here/engine/src/vlog" "$dest/src/vlog"
-cp -n "$here/engine/template/"* "$dest/src/"
+for f in "$here/engine/template/"*; do
+  [[ -e $dest/src/${f##*/} ]] || cp "$f" "$dest/src/"
+done
 modules=$(promo-video-node-modules 2>/dev/null || true)
 modules=${NODE_MODULES:-$modules}
 if [[ -n $modules ]]; then

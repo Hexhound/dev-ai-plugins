@@ -1,4 +1,5 @@
-"""Usage: python3 -I heat-xray.py <capture/name_xray> [...]
+"""Usage: $PY -I heat-xray.py <capture/name_xray> [...]   ($PY: voice-setup.sh's venv python,
+which has NumPy and Pillow)
 
 Turns overdraw clips (vlog_turntable.gd overdraw=on: every surface drawn see-through, adding
 up) into heat maps of how many surfaces are stacked at each pixel, written next to them as

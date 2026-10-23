@@ -5,7 +5,11 @@ set -euo pipefail
 dest=$1
 here=$(cd "$(dirname "$0")/.." && pwd)
 mkdir -p "$dest"
-cp -rn "$here/engine/." "$dest/"
+# The engine, keeping the promo's own files: a test, not `cp -rn` (which exits 1 on a skipped
+# file in some coreutils).
+(cd "$here/engine" && find . -type f) | while read -r f; do
+  [[ -e $dest/$f ]] || { mkdir -p "$(dirname "$dest/$f")" && cp "$here/engine/$f" "$dest/$f"; }
+done
 cp -r "$here/engine/src/lib/." "$dest/src/lib/"
 modules=$(promo-video-node-modules 2>/dev/null || true)
 if [[ -n $modules ]]; then

@@ -30,6 +30,8 @@ var _events: Array = []
 var _tasks: Array[int] = []
 
 
+## Starts a segment from frame 0 (a recorder reused for the next segment keeps nothing of the
+## last one's markers, tracks, rects or events).
 func begin(segment_name: String, recorded: SubViewport, dir: String, frames_per_second: int = 30) -> void:
 	segment = segment_name
 	viewport = recorded
@@ -40,6 +42,11 @@ func begin(segment_name: String, recorded: SubViewport, dir: String, frames_per_
 		DirAccess.remove_absolute(out_dir.path_join(file))
 	recording = true
 	frame_count = 0
+	_markers = {}
+	_tracks = {}
+	_current = {}
+	_rects = {}
+	_events = []
 
 
 ## Saves the viewport as the next frame (call once per rendered frame while recording).
