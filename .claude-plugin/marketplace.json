@@ -56,6 +56,11 @@
       "name": "asset-optimize",
       "source": "./plugins/asset-optimize",
       "description": "Make heavy 3D models game-ready in Blender: triangle-budget variants (decimated with UV seams kept) saved one .blend each, with the original material or an unlit albedo look that shows the texture as painted."
+    },
+    {
+      "name": "web-games",
+      "source": "./plugins/web-games",
+      "description": "Publishing games on web portals: the Playgama developer console as an MCP server (games, builds, in-game catalog, sandbox, covers, the Bridge SDK docs and checklist) and a skill that fills Playgama's Add Game form field by field, with the three covers rendered at their exact sizes."
     }
   ]
 }

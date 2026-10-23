@@ -15,6 +15,7 @@ Not intended for public distribution.
 | `roam-dev` | Building on roam-sync: E2E-encrypted offline-first multi-device sync, LAN pairing, nearby sharing |
 | `asset-extract` | 3D models out of web pages as files: from a Zen/Firefox tab's disk cache (no browser automation), unpacked for Blender, with textures and a preview; or generated on hi3d.ai from an image (headless chromium, throwaway account) |
 | `asset-optimize` | Make heavy 3D models game-ready in Blender: triangle-budget variants (all from 40k to 1k, or a specific count) saved one .blend each, with the original material and/or an unlit albedo look |
+| `web-games` | Publishing games on web portals: the Playgama developer console as an MCP server, and `/playgama` to fill its Add Game form (texts, covers at exact sizes, screenshots, in-app product) |
 
 Unlike `mobile-dev`, `roam-dev` is **not** vendored here — it lives in the
 `Hexhound/roam` repo and is referenced by a `github` source, so the skills version
@@ -141,6 +142,26 @@ triangle budget (40k, 20k, 12k, 8k, 5k, 2.5k, 1k) or a specific count, and wheth
 the original material, an unlit albedo material (the texture as painted), or both. It saves
 one .blend per variant plus a labelled preview sheet. It runs a headless Blender: the one on
 PATH (`asset-optimize-deps` provides it) or `nix run nixpkgs#blender`.
+
+#### Publishing on web portals (any machine)
+
+```
+/plugin install web-games@dev-ai-plugins
+```
+
+It adds Playgama's developer console as an MCP server
+(`https://developer.playgama.com/api/mcp`). Run `/mcp`, pick
+`plugin:web-games:playgama-developer-console` and authenticate with your Playgama account
+once. The agent can then read your games, create them, edit the game form and the in-game
+catalog, upload builds and covers, publish to the sandbox and read the Bridge SDK docs and
+the game checklist. Submitting for moderation and payouts stay in the console. There is no
+API key: the sign-in is OAuth (access renews itself; reconnect after 30 days unused).
+
+`/playgama` (the `playgama-console` skill) fills the Add Game form field by field. It writes
+the description and how to play against what the web build really does, renders the three
+covers at 800x800, 1080x1920 and 1920x1080 (`scripts/render_covers.py`, headless Chromium), picks
+the extra screenshots and sets up the in-app product. When the MCP server is connected, it does
+all of that remotely.
 
 ## Layout
 
