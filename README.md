@@ -162,7 +162,8 @@ API key: the sign-in is OAuth (access renews itself; reconnect after 30 days unu
 the description and how to play against what the web build really does, renders the three
 covers at 800x800, 1080x1920 and 1920x1080 (`scripts/render_covers.py`, headless Chromium), picks
 the extra screenshots and sets up the in-app product. When the MCP server is connected, it does
-all of that remotely.
+all of that remotely. `web-games-deps` brings the Chromium and the Python with Pillow the cover
+script runs on.
 
 ## Layout
 

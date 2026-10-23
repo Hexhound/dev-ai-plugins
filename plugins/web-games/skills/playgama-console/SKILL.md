@@ -151,9 +151,10 @@ place things inside it with absolute positions. Then render and check:
 python3 <this skill>/scripts/render_covers.py listing/cover_*.html --out-dir listing
 ```
 
-The script renders each page at its exact size with headless Chromium, inlining local images,
-stylesheets and fonts. It checks the size and the 10 MB limit, re-saving optimised or as JPEG
-when needed. **Look at every cover** before uploading (open the PNGs), and fix overlaps, empty
+The script renders each page at its exact size with headless Chromium. Local images and linked
+stylesheets are inlined; every other relative URL (CSS backgrounds, `@font-face` fonts,
+`srcset`) loads from the page's own folder. It checks the size and the 10 MB limit, re-saving
+optimised or as JPEG when needed. **Look at every cover** before uploading (open the PNGs), and fix overlaps, empty
 bands and cut-off characters.
 
 ## Other assets

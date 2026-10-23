@@ -10,9 +10,10 @@ Each input is an HTML page or fragment; its file name says which cover it is:
     render_covers.py covers/*.html --out-dir covers
 
 A fragment is wrapped in a page whose `.stage` element fills the cover (position: relative,
-overflow hidden), so absolute children place against it. Local <img src> files are inlined, so
-relative and file:// paths both work. Each PNG is checked: exact size, at most 10 MB (else it is
-re-saved optimised, then as a high-quality JPEG). Chromium: $CHROMIUM_BIN, else chromium /
+overflow hidden), so absolute children place against it. Local <img src> files and linked .css
+files (with their url()s) are inlined; every other relative URL (url() in <style> or style="",
+srcset, @font-face) resolves against the input's folder. Each PNG is checked: exact size, at
+most 10 MB (else it is re-saved optimised, then as a high-quality JPEG). Chromium: $CHROMIUM_BIN, else chromium /
 chromium-browser / google-chrome on PATH, run with a throwaway profile.
 """
 import argparse
@@ -24,6 +25,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 SIZES = {"square": (800, 800), "portrait": (1080, 1920), "landscape": (1920, 1080)}
@@ -94,11 +96,13 @@ def inline_files(html: str, base_dir: str) -> str:
 
 def build_page(source: str, base_dir: str) -> str:
     body = inline_files(source, base_dir)
+    # The page is rendered from a temp folder: every relative URL left (url() in <style> and
+    # style="", srcset, @font-face) still resolves against the input's own folder.
+    head = f'<base href="{Path(base_dir).as_uri()}/"><style>{BASE_CSS}</style>'
     if "<html" in body.lower():
-        return re.sub(r"(<head[^>]*>)", r"\1<style>" + BASE_CSS + "</style>", body, count=1,
+        return re.sub(r"(<head[^>]*>)", lambda m: m.group(1) + head, body, count=1,
                       flags=re.IGNORECASE)
-    return (f"<!doctype html><html><head><meta charset=utf-8><style>{BASE_CSS}</style>"
-            f"</head><body>{body}</body></html>")
+    return f"<!doctype html><html><head><meta charset=utf-8>{head}</head><body>{body}</body></html>"
 
 
 def render(chromium: str, source_path: str, out_path: str, width: int, height: int) -> None:
