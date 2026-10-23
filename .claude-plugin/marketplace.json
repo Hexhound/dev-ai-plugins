@@ -45,7 +45,7 @@
     {
       "name": "promo-video",
       "source": "./plugins/promo-video",
-      "description": "Polished product promo / ad videos for desktop, web and mobile apps: scripted real-app capture, Remotion composition with directed camera and text, beat-synced royalty-free music, and a critic agent that reviews the storyboard and the render."
+      "description": "Polished product promo / ad videos for desktop, web and mobile apps: scripted real-app capture, Remotion composition with directed camera and text, beat-synced royalty-free music, and a critic agent that reviews the storyboard and the render. Also narrated devlogs / vlogs with a free offline narrator voice, subtitles and before/after footage."
     },
     {
       "name": "asset-extract",

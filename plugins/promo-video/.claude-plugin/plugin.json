@@ -1,7 +1,7 @@
 {
   "name": "promo-video",
-  "description": "Polished product promo / ad videos for desktop, web and mobile apps: scripted real-app capture, Remotion composition with directed camera and text, beat-synced royalty-free music, and a critic agent that reviews the storyboard and the render.",
-  "version": "0.1.0",
+  "description": "Polished product promo / ad videos for desktop, web and mobile apps: scripted real-app capture, Remotion composition with directed camera and text, beat-synced royalty-free music, a critic agent that reviews the storyboard and the render, capture adapters for Qt, the web and Godot games, and re-shooting a finished promo when the app changes. Also narrated devlogs / vlogs (narrator-vlog): before/after footage from the real app, a free offline narrator voice (Kokoro), burned-in subtitles, a pointer on the differences, reviewed by the vlog-critic agent.",
+  "version": "0.3.0",
   "author": {
     "name": "Eduardo Barreto Alexandre",
     "email": "claude@sezdm.com"

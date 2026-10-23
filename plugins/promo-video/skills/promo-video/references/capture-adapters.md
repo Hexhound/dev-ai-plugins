@@ -19,8 +19,9 @@ Principles for every stack:
   surfaces — draw them onto the frame at their position, with a soft shadow.
 - **Park overlays** (dialogs, toasts) where they don't cover the subject of the shot.
 
-Status: **Qt — tested** (OmaPhoto). **Web — tested** (sample page). GTK4 and Flutter are
-recipes — validate on the first real app and update this file with what you learn.
+Status: **Qt — tested** (OmaPhoto). **Web — tested** (sample page). **Godot 4 — tested**
+(Chibi Chuu, a 3D phone/PC game). GTK4 and Flutter are recipes — validate on the first real
+app and update this file with what you learn.
 
 ## Qt (Widgets / QML) — `capture/qt/promo_recorder.h`
 
@@ -66,6 +67,48 @@ await record({url: 'http://localhost:4000', out: 'promo/capture'}, async (rec, p
 - Hide dev overlays, cookie banners and scrollbars with injected CSS.
 - Electron: launch with `_electron.launch({executablePath, args})` from playwright-core
   and pass `page: await app.firstWindow()` to `record`.
+
+## Godot 4 (games) — `capture/godot/promo_recorder.gd`
+
+Tested on Chibi Chuu (Godot 4.7, 3D, a phone UI and a PC UI). The driver is a dev scene in
+the game's own project (`res://tools/promo/`, Godot can't load scripts from a folder with a
+`.gdignore`, like `promo/`), run as its own main scene.
+
+- **Render into a SubViewport** of a fixed size, not the window: the capture then doesn't
+  depend on the window or the display. Phone UI: the design size × 1.5 with
+  `size_2d_override` (= design size) and `size_2d_override_stretch`, so the UI lays out as on
+  the phone and renders sharper (1080×2160 → 1620×3240). A world shot without UI: 2400×1350.
+- **Step time yourself**: `godot --fixed-fps 30 --disable-vsync --path . res://tools/promo/x.tscn
+  -- promo_out=<dir> …`. Every frame is then exactly 1/30 s of game time whatever the machine;
+  `--disable-vsync` also keeps a hidden window (Wayland, a locked screen) from stalling.
+- **Drive the real game** through its own API — the mode scene, its launcher, its menus — or
+  a self-playing tool it already has (an autoplay); set seeds. Pointer gestures: call the
+  game's own handlers (grab, drag, throw) and record the point as a track.
+- **Record**: `PromoRecorder` (class in `capture/godot/`): `begin(segment, viewport, out, 30)`,
+  then each `_process`: `capture()` (the frame drawn last), `marker(name)`,
+  `track(name, viewport_point | null)` (sticky), `value(name, number)`, `rect(name, Rect2)`,
+  `event({...})` (facts the composition reads: a drop's tier, a merge, a combo count),
+  `finish()`. `project(world)` / `project_box(aabb)` turn 3D positions into the 2D points
+  tracks and rects want. PNGs are written on worker threads.
+- **Markers from the game's signals** (dropped, landed, merged, combo, card shown), so the
+  composition retimes the real events to the beat.
+- **Physics doesn't replay exactly.** The same seed can play out differently on the next run
+  (Jolt, timing), so a moment picked from one recording isn't there in the next. Record a
+  wider window than the shot needs (e.g. 12–48 s for an 8-second shot), save every event,
+  then pick the window with a small script over `capture.json` (e.g. "a landing, then a
+  combo chain of ×2…×4 whose merges fit the beats at real speed"), and set the frames in the
+  composition. Re-check after every re-record.
+- **Sound**: Godot doesn't record audio with these frames. Place the game's own sound files
+  at the markers in the composition (`<Sequence><Audio/></Sequence>` per cue) and mix them
+  with the music (`scripts/mix-sfx.sh`).
+- **Cost**: about 0.3–1.2 s a frame at 1620×3240 (readback + PNG), so a 12-segment promo
+  takes 15–45 min to record; record segments in parallel processes when the machine allows.
+- **Look**: the game's own fonts and shaders render as in the game; turn off debug
+  overlays; pick the detail level the promo shows (e.g. full detail on a phone where a
+  low-detail setting starts on).
+- Example: Chibi Chuu's `tools/promo/` (`promo_play.gd` records a mode's run with drop / land /
+  merge / combo markers, `promo_menu.gd` a title-screen grab-and-throw, `promo_merge.gd` a
+  staged merge) and `play_store/promo/driver/capture_all.sh`.
 
 ## GTK4 (e.g. chatot — Go + gotk4) — recipe
 

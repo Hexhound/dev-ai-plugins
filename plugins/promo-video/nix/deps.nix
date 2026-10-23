@@ -12,6 +12,10 @@ pkgs:
   pkgs.jq
   # Frame conversion and contact sheets.
   pkgs.imagemagick
+  # narrator-vlog: the Kokoro voice runs from a venv (kokoro-onnx, onnxruntime wheels) that
+  # voice-setup.sh makes with this python and fills with pip; curl fetches the model.
+  pkgs.python3
+  pkgs.curl
 ]
 ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux [
   # Prebuilt Remotion + Playwright node_modules (`promo-video-node-modules` prints its path).

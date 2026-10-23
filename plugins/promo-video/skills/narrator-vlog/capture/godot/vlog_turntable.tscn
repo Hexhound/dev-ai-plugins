@@ -1,0 +1,48 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://tools/vlog/vlog_turntable.gd" id="1_turntable"]
+
+[sub_resource type="Environment" id="Environment_stage"]
+background_mode = 1
+background_color = Color(0.968627, 0.937255, 0.976471, 1)
+ambient_light_source = 2
+ambient_light_color = Color(1, 0.96, 0.97, 1)
+ambient_light_energy = 0.28
+tonemap_mode = 0
+
+[node name="VlogTurntable" type="Node"]
+script = ExtResource("1_turntable")
+
+[node name="Container" type="SubViewportContainer" parent="."]
+offset_right = 1920.0
+offset_bottom = 1080.0
+stretch = true
+
+[node name="Viewport" type="SubViewport" parent="Container"]
+unique_name_in_owner = true
+msaa_3d = 3
+size = Vector2i(1920, 1080)
+render_target_update_mode = 4
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="Container/Viewport"]
+unique_name_in_owner = true
+environment = SubResource("Environment_stage")
+
+[node name="KeyLight" type="DirectionalLight3D" parent="Container/Viewport"]
+transform = Transform3D(0.848048, 0.395217, -0.353026, 0, 0.666, 0.746, 0.529919, -0.632466, 0.564951, 0, 0, 0)
+light_color = Color(1, 0.952941, 0.886275, 1)
+light_energy = 0.75
+
+[node name="FillLight" type="DirectionalLight3D" parent="Container/Viewport"]
+transform = Transform3D(-0.615661, 0.252, 0.746, 0, 0.947, -0.32, -0.788011, -0.197, -0.583, 0, 0, 0)
+light_color = Color(0.807843, 0.85098, 1, 1)
+light_energy = 0.12
+
+[node name="Pivot" type="Node3D" parent="Container/Viewport"]
+unique_name_in_owner = true
+
+[node name="Camera" type="Camera3D" parent="Container/Viewport"]
+unique_name_in_owner = true
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 4)
+projection = 1
+size = 1.35

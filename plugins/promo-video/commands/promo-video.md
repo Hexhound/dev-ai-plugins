@@ -5,6 +5,9 @@ argument-hint: [app project directory]
 
 Invoke the **promo-video** skill and run it for the app at `$ARGUMENTS` (ask if empty).
 
+If the app already has a finished promo and its look has changed since, ask whether to
+re-shoot it (same cut, music and words; the skill's RESHOOT steps) or make a new one.
+
 Work through its phases in order, pausing for the user at these points only:
 
 1. After the brief — confirm audience, message, CTA and must-show features.

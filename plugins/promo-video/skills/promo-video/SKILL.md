@@ -1,6 +1,6 @@
 ---
 name: promo-video
-description: Make a polished 30–45 s product promo / ad video for a desktop, web or mobile app — real captured app footage driven by a script, composed in Remotion with camera moves, text treatments and beat-synced royalty-free music. Storyboard reviewed by a critic agent before anything is captured. Use when asked for a promo, ad, launch or trailer video of an app.
+description: Make a polished 30–45 s product promo / ad video for a desktop, web or mobile app or a game — real captured app footage driven by a script, composed in Remotion with camera moves, text treatments and beat-synced royalty-free music. Storyboard reviewed by a critic agent before anything is captured. Also re-shoots a finished promo when the app's look changes. Use when asked for a promo, ad, launch or trailer video of an app, or to update one.
 user-invocable: true
 ---
 
@@ -30,8 +30,10 @@ promo/driver/ (capture code)  promo/video/ (Remotion project)  promo/out/
 
 Tools come from the plugin's Nix deps (`promo-video-deps`): node, chromium, ffmpeg,
 aubio, imagemagick, jq, and a prebuilt Remotion + Playwright `node_modules`
-(`promo-video-node-modules` prints its path). Scripts below are in this skill's
-`scripts/` dir. Heavy capture/render can run on a stronger machine over ssh.
+(`promo-video-node-modules` prints its path). Without Nix: `init-video.sh` falls back to
+`npm install`, and `music-prepare.sh` to `scripts/aubiotrack-numpy.py` when aubio is
+missing. Scripts below are in this skill's `scripts/` dir. Heavy capture/render can run on a
+stronger machine over ssh.
 
 ---
 
@@ -39,6 +41,10 @@ aubio, imagemagick, jq, and a prebuilt Remotion + Playwright `node_modules`
 
 Check memory and `promo/` for prior state (brief, chosen track, storyboard version and
 review verdicts, captures, renders). Summarize and resume; don't restart finished phases.
+
+A **finished** promo (`promo/out/` has the render) and an app whose look has changed since
+(new art, characters, UI, colours): ask whether to **re-shoot** it (same cut, music and
+words; see RESHOOT) or make a new one. Re-shooting is the default.
 
 ## PHASE 1 — Brief
 
@@ -77,7 +83,9 @@ bars, camera, text treatment, transitions, beat hooks, what the viewer should no
 exactly what the capture must provide (segments in story order, markers, tracks, rects).
 
 Then spawn the **`promo-critic`** agent (fresh context) with the brief, storyboard and
-playbook paths. Save its review to `promo/reviews/storyboard-v<N>.md`, apply the blockers
+playbook paths. If the agent isn't available (the plugin's agents aren't installed), spawn a
+general-purpose agent with the contents of this plugin's `agents/promo-critic.md` as its
+instructions, plus the same inputs. Save its review to `promo/reviews/storyboard-v<N>.md`, apply the blockers
 and the improvements you agree with, bump the version, and run one more round if the
 verdict wasn't `ship`. Max two rounds, then show the user the storyboard and the
 critic's signature moments, and get approval.
@@ -94,6 +102,10 @@ headless, in story order, and writes the capture contract per segment:
   the camera follows, and a rect for every region the camera frames or a callout points
   at. Park dialogs where they don't cover the subject.
 - Hold states long enough to remap (≥ 15 frames per event).
+- **Runs that don't replay exactly** (games with physics, anything timing-dependent): the
+  same seed can play differently next time. Record a wider window than the shot needs,
+  save every event (`events` in `capture.json`), and pick the shot's moment with a small
+  script over them; never hard-code a frame from an earlier recording.
 - Check: `scripts/contact-sheet.sh promo/capture/<segment> sheet.jpg` and look at it.
   Fix the driver until every marker frame shows what the storyboard says.
 
@@ -102,7 +114,8 @@ headless, in story order, and writes the capture contract per segment:
 `scripts/init-video.sh promo/video` scaffolds the Remotion project with the engine
 (`src/lib`: beat clock, capture remap/tracks, camera with follow + motion blur, glass
 materialize, sweep reveal, light wipe, flash, backdrop/grain, text treatments incl.
-scrims). Then `scripts/prep-video.sh promo` copies frames (JPEG) and metadata into it.
+scrims). Then `scripts/prep-video.sh promo [segment …]` copies frames (JPEG) and metadata
+into it (only the named segments when given).
 
 Write `src/Promo.tsx` for this storyboard. Rules of thumb:
 
@@ -112,6 +125,10 @@ Write `src/Promo.tsx` for this storyboard. Rules of thumb:
   context changes; match cuts align rects (see the example's wolf).
 - Extend `lib/` when a shot needs a new device, bespoke to this product; keep lib
   generic.
+- **The app's own sounds** (a game's pops and chimes, a click): put them in `promo/assets/`
+  and place them on the markers as `<Sequence from={…}><Audio src={…}/></Sequence>` cues.
+  `scripts/mix-sfx.sh` renders them alone and mixes them over the music (ducked under each
+  cue); render with its `out/mix.wav`.
 
 QA loop — never skip:
 1. `scripts/stills.sh promo/video <t1> <t2> …` renders stills at each shot's key moment
@@ -123,9 +140,33 @@ QA loop — never skip:
 
 `scripts/render.sh promo/video promo/music/<track>.mp3 <music.json> promo/out/<name>.mp4`
 renders an image sequence, encodes H.264, and muxes the music section with fades,
-normalized to −14 LUFS. Make a contact sheet of the final file and look at it. Deliver
+normalized to −14 LUFS. With the app's sounds: `scripts/mix-sfx.sh promo/video <track>
+<music.json>` first, then `render.sh promo/video promo/video/out/mix.wav
+promo/video/out/mix.json <out.mp4> 0.3`. Write a small `promo/render.sh` that runs the
+promo's exact steps, so a re-render is one command. Make a contact sheet of the final file and look at it. Deliver
 the path, length, the attribution line(s) to put in the post, and what you didn't
 verify (you can't hear the mix).
+
+## RESHOOT — the app changed after the promo was made
+
+The approved cut stays; only the footage that shows what changed is recorded again.
+
+1. **Back up** the delivered video and its thumbnail (`promo/out/bkp/`), unless the user
+   says otherwise.
+2. **Find the segments that show the change**: look at their contact sheets and their
+   `events` (a character that only appears at a tier, a UI element in every phone shot).
+   Segments that don't show it keep their footage.
+3. **Re-record** those segments with the same driver. Check what the driver depends on
+   (renamed characters, a new detail level, a new loading screen before the first frame).
+4. **Re-pick the moments**: runs may not replay exactly, so every marker the composition
+   names (`land.26`, `merge.14`) can be gone. Search the new `events` for each shot's
+   pattern, keep footage at or below real speed, and update the composition's frame
+   constants and beat placements. Note the moves in the storyboard ("Re-shot" section).
+5. **QA**: `stills.sh` at every shot's key moment, then one `promo-critic` visual pass told
+   that the cut is approved and only the re-shoot is under review (it judges legibility,
+   subject size, the app's own pop-ups clashing with the overlays, framing). Fix its
+   blockers; a blocker that the approved cut already had is reported, not fixed.
+6. **Render**, make the thumbnail again, look at a contact sheet of the file, deliver.
 
 ## Gotchas
 
@@ -139,3 +180,10 @@ verify (you can't hear the mix).
   story order.
 - Heavy motion blur and big zoom-follow amplify each other — keep blur subtle and the
   follow track well smoothed; check stills of fast moments.
+- **Stills are slow** (about 25 s each, a fresh bundle per still): pick 10–26 times per
+  sheet, and run long sheets and renders in the background.
+- **The app's own pop-ups** (score text, combo counters, toasts) are real footage: pick
+  moments where they don't contradict the overlays (a "×3" from an earlier chain right
+  before the readout's "×2").
+- **A frozen app** (paused game, a modal) still draws: check that the frames around each
+  marker move.

@@ -8,7 +8,12 @@ here=$(cd "$(dirname "$0")" && pwd)
 mkdir -p "$out"
 if [[ $src == http* ]]; then curl -sfL -o "$out/track.mp3" "$src"; else cp "$src" "$out/track.mp3"; fi
 ffmpeg -loglevel error -y -i "$out/track.mp3" -ac 1 -ar 44100 "$out/track.wav"
-aubiotrack -i "$out/track.wav" > "$out/track.beats"
+# aubio from the Nix deps; without it, the NumPy stand-in next to this script (same output).
+if command -v aubiotrack >/dev/null; then
+  aubiotrack -i "$out/track.wav" > "$out/track.beats"
+else
+  python3 "$here/aubiotrack-numpy.py" -i "$out/track.wav" > "$out/track.beats"
+fi
 ffmpeg -hide_banner -nostats -i "$out/track.wav" -af ebur128=metadata=1,ametadata=print:key=lavfi.r128.S -f null - 2>&1 |
   grep -oE 'lavfi.r128.S=-?[0-9.]+' | cut -d= -f2 > "$out/track.loud"
 node "$here/music-analyze.mjs" "$out/track.beats" "$out/track.loud" "$video" "$anchor" > "$out/music.json"
