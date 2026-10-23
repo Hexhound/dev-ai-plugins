@@ -4,7 +4,8 @@ API (androidpublisher v3), as a service account. Only `requests` and `cryptograp
 
     play_publish.py tracks  --package com.example.app
     play_publish.py upload  --package com.example.app --aab app.aab --tracks internal,alpha \
-                            --notes-dir release_notes --version 1.2.0 [--dry-run]
+                            --notes-dir release_notes --version 1.2.0 \
+                            [--mapping mapping.txt] [--dry-run]
 
 The key: --key <service-account.json>, else $PLAY_SERVICE_ACCOUNT_JSON, else
 ~/.config/play-publisher/service-account.json. It is a secret: kept outside every repo, mode
@@ -18,6 +19,10 @@ new" texts, then commits. Play reviews a closed-track release before testers get
 
 Release notes: <notes-dir>/<version>.<language>.txt, e.g. 1.2.0.en-US.txt (500 characters at
 most each); every language found is sent.
+
+--mapping: R8's mapping.txt for this bundle (an app built with R8 on, which is what Play Console's
+"code optimization" asks for). It goes up in the same edit, as the bundle's deobfuscation file, so
+Play can read the crash and ANR reports of the renamed code.
 """
 import argparse
 import base64
@@ -147,10 +152,12 @@ def read_notes(notes_dir: str, version: str) -> list[dict]:
 
 
 def upload(play: Play, aab: str, tracks: list[str], version: str, notes: list[dict],
-           dry_run: bool) -> None:
+           mapping: str | None, dry_run: bool) -> None:
     bundle = Path(aab)
     if not bundle.is_file():
         fail(f"no bundle at {bundle}")
+    if mapping and not Path(mapping).is_file():
+        fail(f"no mapping file at {mapping}")
     edit = play.open_edit()
     committed = False
     try:
@@ -165,6 +172,13 @@ def upload(play: Play, aab: str, tracks: list[str], version: str, notes: list[di
                                  headers={"Content-Type": "application/octet-stream"})
         code = int(uploaded["versionCode"])
         print(f"    versionCode {code}")
+        if mapping:
+            print(f"==> uploading the R8 mapping {Path(mapping).name}"
+                  f" ({Path(mapping).stat().st_size / 1e6:.1f} MB)")
+            with Path(mapping).open("rb") as data:
+                play.call("POST", f"/edits/{edit}/apks/{code}/deobfuscationFiles/proguard",
+                          base=UPLOAD, timeout=300, params={"uploadType": "media"}, data=data,
+                          headers={"Content-Type": "application/octet-stream"})
         for track in tracks:
             play.call("PUT", f"/edits/{edit}/tracks/{track}", json={
                 "track": track,
@@ -195,6 +209,7 @@ def main() -> None:
     parser.add_argument("--tracks", default="internal", help="comma-separated track ids")
     parser.add_argument("--version", help="the release name (version name), e.g. 1.2.0")
     parser.add_argument("--notes-dir", help="folder of <version>.<language>.txt release notes")
+    parser.add_argument("--mapping", help="R8's mapping.txt for this bundle (deobfuscation file)")
     parser.add_argument("--dry-run", action="store_true", help="validate, then throw the edit away")
     args = parser.parse_args()
     play = Play(access_token(load_key(args.key)), args.package)
@@ -205,7 +220,7 @@ def main() -> None:
         fail("upload needs --aab, --version and --notes-dir")
     tracks = [t.strip() for t in args.tracks.split(",") if t.strip()]
     upload(play, args.aab, tracks, args.version, read_notes(args.notes_dir, args.version),
-           args.dry_run)
+           args.mapping, args.dry_run)
 
 
 if __name__ == "__main__":

@@ -79,11 +79,15 @@ delete the key in Cloud Console (Keys tab) and make a new one.
    ```sh
    python3 <this skill>/scripts/play_publish.py upload --package <package> \
        --aab <bundle.aab> --version <x.y.z> --notes-dir <notes-dir> \
-       --tracks internal,<closed-track> --dry-run
+       --tracks internal,<closed-track> [--mapping <mapping.txt>] --dry-run
    ```
 
    Run the same command without `--dry-run`. One edit uploads the bundle once and puts that
    release on both tracks, rolled out in full to their testers, with the notes.
+
+   - **`--mapping`:** R8's `mapping.txt` for this bundle, uploaded in the same edit as its
+     deobfuscation file, so Play can read crash and ANR reports from the renamed code. Pass it
+     whenever the app is built with R8 on.
 7. **Report:**
    - the version code;
    - which tracks got the release;
@@ -110,3 +114,11 @@ delete the key in Cloud Console (Keys tab) and make a new one.
 - **A track missing:** `tracks` shows the ids this app really has; closed tracks made in the
   Console have custom ids.
 - **Upload timeouts on big bundles:** retry. The script waits up to 15 minutes for the upload.
+- **Play Console: "Your app is not optimized" (code optimization):** the bundle was built without
+  R8. Play reads the compiler's marker in the app's code (D8 = not optimized). Turn on
+  `minifyEnabled` in the release build type, with keep rules for anything called by name or
+  reflection (JNI, plugins). Then publish with `--mapping`.
+  - Godot builds have no export option for it, and `--install-android-build-template` unpacks a
+    fresh template every build. Patch the template from an `EditorExportPlugin`'s
+    `_export_begin`, which runs after the install and before Gradle. Keep
+    `org.godotengine.**` whole: the engine calls it over JNI and finds plugins by reflection.
