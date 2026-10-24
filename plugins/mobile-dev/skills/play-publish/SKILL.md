@@ -6,6 +6,11 @@ user-invocable: true
 
 # Publish to Google Play testing tracks
 
+Play Console's navigation changed in 2026. Every Console step below uses the new section names
+(Test and release, Monitor and improve, Grow users, Monetize with Play; Home and Manage account
+outside the app); the `play-console-setup` skill keeps the full map and the confirmed paths. Give
+the developer paths in that layout, never the old menus.
+
 The developer's rule: **every release goes to internal testing and to their closed test.**
 Promoting further (open testing, production) is theirs to do in the Console; never do it here.
 
@@ -26,8 +31,9 @@ developer these steps (Google's current flow; linking a Cloud project in Play Co
 4. **Its key:** open the service account → **Keys** → **Add key** → **Create new key** →
    **JSON**. A file downloads. That file is the secret: anyone holding it can publish your
    apps.
-5. **Into Play Console:** https://play.google.com/console/users-and-permissions → **Invite
-   new users** → paste the service account email.
+5. **Into Play Console:** **Manage account → Users and permissions**
+   (https://play.google.com/console/users-and-permissions) → **Invite new users** → paste the
+   service account email.
    - **App permissions:** add the app (or each app) with **Release apps to testing tracks**
      (and **View app information**, ticked with it).
    - No account-wide permissions, nothing financial, no production releases.
@@ -109,9 +115,17 @@ delete the key in Cloud Console (Keys tab) and make a new one.
 - **403 "The caller does not have permission":** the service account isn't invited for this
   app, or lacks "Release apps to testing tracks", or the invite is too new. New Play access can
   take 24–36 hours to start working.
-  - Workaround that often makes it work at once: in Play Console, open the app → Monetize →
-    Products → In-app products (or Subscriptions), change any product's description and save.
-    Revert it afterwards.
+  - Workaround that often makes it work at once: in Play Console, open the app → **Monetize with
+    Play → Products → One-time products** (or Subscriptions), change any product's description
+    and save. Revert it afterwards.
+- **400 "This release includes the com.google.android.gms.permission.AD_ID permission but your
+  declaration on Play Console says your app doesn't use advertising ID":** the app now has ads
+  (AdMob merges the permission in) and the Console's declaration still says No. The dry run's
+  validate step catches it. No API fixes it: the developer opens **Monitor and improve → Policy
+  and programs → App content → Advertising ID** → Yes, with the purposes Advertising or
+  marketing, Analytics, and Fraud prevention, security, and compliance. Then run the dry run
+  again. Do the rest of App content in the same visit (Ads: yes; Data safety), since the closed
+  track's review reads them.
 - **"APK specifies a version code that has already been used":** bump the version code; Play
   never takes the same code twice. First check with `tracks` that the last run didn't publish
   this very build.

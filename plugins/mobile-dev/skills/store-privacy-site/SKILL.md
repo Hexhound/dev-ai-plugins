@@ -71,7 +71,8 @@ Start the file with a comment saying where it's served:
 <!--
   <App> — privacy policy, served at https://<project>.pages.dev/privacy-policy
   (Cloudflare Pages serves privacy-policy.html at that path). Deploy the whole site
-  folder. Paste the URL into Play Console → App content → Privacy policy and into the listing.
+  folder. Paste the URL into Play Console → Monitor and improve → Policy and programs → App
+  content → Privacy policy, and into the listing.
 -->
 ```
 
