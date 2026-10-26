@@ -1,7 +1,7 @@
 {
   "name": "promo-video",
-  "description": "Polished product promo / ad videos for desktop, web and mobile apps: scripted real-app capture, reel composition (TypeScript scenes on the GPU) with directed camera and text, beat-synced royalty-free music, narrated feature tutorials, a critic agent that reviews the storyboard and the render, capture adapters for Qt, the web and Godot games, and re-shooting a finished promo when the app changes. Also narrated devlogs / vlogs (narrator-vlog): before/after footage from the real app, a free offline narrator voice (Kokoro), burned-in subtitles, a pointer on the differences, reviewed by the vlog-critic agent.",
-  "version": "0.6.0",
+  "description": "Polished product promo / ad videos for desktop, web and mobile apps: scripted real-app capture, reel composition (TypeScript scenes on the GPU) with directed camera and text, beat-synced royalty-free music, narrated feature tutorials, a critic agent that reviews the storyboard and the render, capture adapters for Qt, the web and Godot games, and re-shooting a finished promo when the app changes. Also narrated devlogs / vlogs (narrator-vlog): before/after footage from the real app, a free offline narrator voice (Kokoro), burned-in subtitles, a pointer on the differences, reviewed by the vlog-critic agent. And narrated pt-BR news Reels from Olhar Factual story links (olhar-reels): the fact and the three lenses, a pronunciation lexicon approved by ear, runnable unattended under the Reel Desk panel.",
+  "version": "0.7.0",
   "author": {
     "name": "Eduardo Barreto Alexandre",
     "email": "claude@sezdm.com"

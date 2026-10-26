@@ -1,0 +1,54 @@
+{
+ "_doc": "How each voice READS a word (captions keep the original). Value per 'engine:voice', per 'engine', or 'default'. Picked from the user's listening (voices/pronuncia-rodada1, voices/pronuncia) and a phoneme pre-screen (voices/phones.py). Factual = [fak.tu.ˈaw], fac-tu-AU; PoderData = po-DER Data; IstoÉ = isto É. Approved by the user on 2026-10-18 (voices/correcoes.html): Francisca PoderData/IstoÉ ok; Qwen3 male 'Factuáu' ok (also 'Fac-tu-áu', 'Factuál'; plain 'Factual' is wrong in Qwen3). Reels round (2026-10-19, voices/pronuncia-reels): Band and PEC are fine as written in both voices ('Bandi' and 'pequi' are wrong); in Qwen3 only 'Fake News' (capitalised) is right, Edge reads 'fake news' fine. Round 2026-10-20 (voices/pronuncia-2026-10-20, Francisca): Willer Tomaz, Newcastle, Witkoff, PF, STF, CNJ and TSE are fine as written; Zelensky must be 'Zelênski'. Round 2026-10-21 (voices/pronuncia-2026-10-21, -b, -c; Francisca): CNN and UOL fine as written; Luchsinger = 'Luk-sínguer' (U sound, like English 'lucksinger'); Quaest = 'Quest'.",
+ "Factual": {
+  "edge": "Factual",
+  "qwen": "Factuáu",
+  "kokoro": "Factuáu",
+  "supertonic": "Factuál"
+ },
+ "PoderData": {
+  "default": "Poder Data"
+ },
+ "IstoÉ": {
+  "default": "Isto É"
+ },
+ "fake": {
+  "qwen": "Fake"
+ },
+ "news": {
+  "qwen": "News"
+ },
+ "Zelensky": {
+  "edge": "Zelênski"
+ },
+ "Luchsinger": {
+  "edge": "Luk-sínguer"
+ },
+ "Quaest": {
+  "edge": "Quest"
+ },
+ "AI-5": {
+  "edge": "A I cinco"
+ },
+ "IPCA-15": {
+  "edge": "IPCA 15"
+ },
+ "Alcazar": {
+  "edge": "Al-ca-zar"
+ },
+ "Richarlison": {
+  "edge": "Richárlisson"
+ },
+ "Desenrola": {
+  "edge": "Desenrrola"
+ },
+ "Derrite": {
+  "edge": "Derrítchi"
+ },
+ "bets": {
+  "edge": "béts"
+ },
+ "Fux": {
+  "edge": "Fucs"
+ }
+}
