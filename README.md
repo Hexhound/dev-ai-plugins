@@ -61,6 +61,12 @@ signed AAB, then an upload through the Play Developer API as a service account (
 first). Its skill has the steps to make the service account key; promoting further stays a
 Console step.
 
+`/mobile-dev:console-browser` covers what those APIs can't: it drives AdMob and Play Console
+in a visible Chromium the developer signs into (Playwright attaches over the DevTools port),
+for AdMob apps, ad units, the GDPR consent message and app-ads.txt checks, and Play's
+Advertising ID declaration, Data safety, content rating and target audience. The developer
+watches and approves; it needs Chromium and Node on PATH.
+
 `mobile-dev` also ships a `PreToolUse` hook that blocks unbounded `flutter run` /
 `adb logcat` from flooding the conversation — it activates automatically once the plugin
 is enabled (needs `jq` on PATH; see [Dependencies](#dependencies-nix-flake)).
