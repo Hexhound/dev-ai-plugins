@@ -1,6 +1,7 @@
 # dev-ai-plugins
 
-Private Claude Code plugin marketplace — a monorepo of internal development plugins.
+Private plugin marketplace for Claude Code and Codex CLI — a monorepo of internal
+development plugins.
 Not intended for public distribution.
 
 ## Plugins
@@ -26,7 +27,7 @@ with the library they describe. Installing it clones that repo.
 language-neutral in `dev-workflow`; `elixir-dev` only supplies the stack conventions and
 the one-line verify command the gate runs. A Go or Node pack would be equally thin.
 
-## Install
+## Install (Claude Code)
 
 First add this repo as a marketplace (once), then install the plugins for your stack.
 
@@ -34,8 +35,9 @@ First add this repo as a marketplace (once), then install the plugins for your s
 /plugin marketplace add /home/sezdocs/projects/dev-ai-plugins
 ```
 
-(Or point at the remote instead of a local path once it's hosted, e.g.
-`/plugin marketplace add <owner>/dev-ai-plugins`.)
+(Or point at the remote instead of a local path: `/plugin marketplace add
+Hexhound/dev-ai-plugins`. Note `sezaru/dev-ai-plugins` also resolves but is stale and
+carries only `dev-workflow`.)
 
 ### Per environment
 
@@ -171,6 +173,55 @@ the extra screenshots and sets up the in-app product. When the MCP server is con
 all of that remotely. `web-games-deps` brings the Chromium and the Python with Pillow the cover
 script runs on.
 
+## Install (Codex CLI)
+
+Codex reads `.claude-plugin/marketplace.json` directly — nothing here needs converting.
+The commands are real subcommands, not slash commands, and both are idempotent:
+
+```bash
+codex plugin marketplace add Hexhound/dev-ai-plugins
+codex plugin add dev-workflow@dev-ai-plugins
+codex plugin add elixir-dev@dev-ai-plugins
+codex plugin add coding-guidelines@dev-ai-plugins
+codex plugin list
+```
+
+Everything installs under `$CODEX_HOME` (default `~/.codex`), so per-project setups that
+scope `CODEX_HOME` install per project.
+
+Skills work as-is, offered to the model as `<plugin>:<skill>`.
+
+### Two caveats
+
+**Commands containing `$ARGUMENTS` are silently dropped.** Codex migrates `commands/*.md`
+into skills at install time but skips any command whose body interpolates that variable,
+so `/dev-workflow:feature`, `bugfix`, `refactor`, `feature-parallel` and `review-gate` do
+not appear. Invoke the underlying skill instead — the commands are thin wrappers over
+`feature-development`, `bugfixing`, `refactoring`, `parallel-feature` and `review-gate`.
+
+**Hooks must be trusted once before they run.** Installing or enabling a plugin does not
+trust its hooks; until then the verify gate and commit guard are discovered and skipped,
+with no warning. Review and trust them under `/hooks` in the interactive TUI. Trust is
+recorded against each hook's current hash, so **a plugin update that changes either script
+re-arms the review and the gate stops enforcing until you approve again.** Worth
+re-checking `/hooks` after every upgrade.
+
+Only hooks from a system-managed directory skip that review. That is how the Nix devenv
+module trusts them automatically; by hand, expect the prompt.
+
+### Updating
+
+Refreshing the marketplace is not enough — installs are snapshots of a specific version,
+so re-add each plugin to move onto the new code:
+
+```bash
+codex plugin marketplace upgrade
+codex plugin add dev-workflow@dev-ai-plugins
+```
+
+Verified against `codex-cli` 0.154.0. This surface is young and moves fast; re-check the
+behaviour above after a major bump.
+
 ## Layout
 
 ```
@@ -188,9 +239,10 @@ dev-ai-plugins/
 ## Provider-neutral by design
 
 The valuable content — code guidelines, patterns, MCP configs — is kept portable in
-`core/` and as plain skill markdown. The Claude-Code plugin layer is thin packaging on
-top. This keeps the door open to a future adapter for other AI tools (e.g. OpenAI/Codex)
-that reuses the same knowledge. See `core/README.md`.
+`core/` and as plain skill markdown. The plugin layer is thin packaging on top.
+
+That bet paid off sooner than expected: Codex consumes this marketplace unchanged, with no
+adapter, so the same skills serve both vendors. See `core/README.md`.
 
 ## Dependencies (Nix flake)
 
