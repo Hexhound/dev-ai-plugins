@@ -38,6 +38,23 @@
 //     --out markets.csv --llm-prompt market.md
 //   node af_market.mjs --seed "sleep" --alpha            # alphabet-expand seeds for max breadth
 //   node af_market.mjs --seed "budget" --exclude "loan,casino"   # drop candidate terms by substring
+//
+// INVERTED-FUNNEL MODE (widen the field, then keep only the buildable open band — NOT the top of pop):
+//   node af_market.mjs --seed "sleep,focus,habit" --wide --max-terms 400 \
+//     --open-only --min-gap 20 --check-incumbents --out buildable.csv --llm-prompt market.md
+//   --wide            : broaden the generator (deeper hint recursion + 2-letter alpha + recurse ALL terms)
+//   --min-gap N       : drop candidates below gap_score N (gap = popularity x openness)
+//   --open-only       : keep only the open band (pop>=20 & competitiveness<=60)
+//   --check-incumbents: for each open term, look up the top ranker's iTunes rating count; flag GIANT
+//                       (>= --giant-ratings, default 50000) => gap illusory. BUILDABLE = open & no giant.
+//   Rationale: the top of the popularity list is ~100% walled (empirically 0/29 head terms open), so
+//   sort by GAP + verify weak incumbents, never by raw popularity.
+//
+// The --llm-prompt now also encodes gates that demand-scoring alone misses (from studying builders who
+// shipped $1M+ solo apps): MARKETABILITY (content-volume / show-don't-tell / tell-a-friend — a gap you
+// can't make content for is a graveyard), VERTICALIZE (a walled term may hide an unserved vertical
+// wedge a giant ignores — the "Freed" pattern — don't auto-kill it), a one-week-copy MOAT test, and a
+// fake-door GROUND-TRUTH gate (AI mirrors existing demand; it cannot validate novel demand).
 
 import { chromium } from 'playwright-core';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -66,6 +83,18 @@ if (opt('exclude-file')) excludeSub = excludeSub.concat(
 const out = opt('out');
 const llmPrompt = opt('llm-prompt');
 
+// ---- gap-band / weak-incumbent controls (the inverted-funnel upgrade) ----
+// The top of the popularity list is universally walled (empirically 0/29 head terms open). So we do
+// NOT sort by popularity — we widen the candidate field, sort by GAP (pop x openness), filter to the
+// open band, and (optionally) confirm the leaders are NOT funded giants via public iTunes ratings.
+const wide = flag('wide');                            // broaden the generator (deeper recursion + 2-letter alpha + recurse all terms)
+const minGap = Number(opt('min-gap', '0'));           // drop candidates below this gap_score
+const openOnly = flag('open-only');                   // output only open-band candidates
+const checkIncumbents = flag('check-incumbents');     // enrich open candidates with the top leader's iTunes rating count
+const giantRatings = Number(opt('giant-ratings', '50000')); // top app with >= this many ratings = funded giant present (not buildable)
+const effDepth = wide ? Math.max(depth, 3) : depth;   // wide => recurse deeper
+const effAlpha = alpha || wide;
+
 if (!seeds.length) { console.error('Give at least one domain seed: --seed "pet,dog,cat"'); process.exit(1); }
 
 // Apple storefront ids (for the search-hints X-Apple-Store-Front header). "<id>-1,29" = platform tail.
@@ -93,6 +122,22 @@ async function appleHints(term) {
   } catch { return []; }
 }
 
+// ---- public iTunes ratings (weak-incumbent check; no auth) ----
+// Given a leader app NAME, find its user-rating count. A high count = a funded giant already owns the
+// keyword => the "open" gap is illusory. Low/no count on the top ranker => genuinely beatable.
+async function itunesTopApp(name) {
+  const url = 'https://itunes.apple.com/search?term=' + encodeURIComponent(name) +
+    '&country=' + country + '&entity=software&limit=1';
+  try {
+    const r = await fetch(url, { headers: { 'User-Agent': 'iTunes/12.11' } });
+    if (r.status !== 200) return null;
+    const j = await r.json();
+    const a = (j.results || [])[0];
+    if (!a) return null;
+    return { ratings: a.userRatingCount ?? 0, rating: a.averageUserRating ?? null, name: a.trackName };
+  } catch { return null; }
+}
+
 function acceptable(term) {
   const t = term.trim();
   if (t.length < minLen) return false;
@@ -109,7 +154,9 @@ async function expandTerms() {
 
   // level 0: seeds themselves + (optional) alphabet-expanded seeds -> hint breadth
   let queries = [...seeds];
-  if (alpha) for (const s of seeds) for (const c of alphabet) queries.push(s + ' ' + c);
+  if (effAlpha) for (const s of seeds) for (const c of alphabet) queries.push(s + ' ' + c);
+  // wide: 2-letter alpha (seed + "ab".."zz"-ish) for a much broader hint field
+  if (wide) for (const s of seeds) for (const c of alphabet) for (const d of alphabet.filter((_, i) => i % 3 === 0)) queries.push(s + ' ' + c + d);
   queries = [...new Set(queries)];
 
   const frontier = new Set();
@@ -121,10 +168,10 @@ async function expandTerms() {
   }
   console.error(`level 1: ${collected.size} candidate terms from ${queries.length} hint queries`);
 
-  // level 2+: recurse hints on discovered multi-word terms for depth
+  // level 2+: recurse hints for depth. normally only multi-word terms (category-shaped); wide recurses ALL.
   let level = 1;
-  let toExpand = [...frontier].filter(t => t.split(/\s+/).length >= 2);
-  while (level < depth && collected.size < maxTerms * 3 && toExpand.length) {
+  let toExpand = [...frontier].filter(t => wide || t.split(/\s+/).length >= 2);
+  while (level < effDepth && collected.size < maxTerms * 3 && toExpand.length) {
     const next = [];
     for (const q of toExpand.slice(0, 40)) {
       const hs = await appleHints(q);
@@ -133,7 +180,7 @@ async function expandTerms() {
       if (collected.size >= maxTerms * 3) break;
     }
     level++;
-    toExpand = next.filter(t => t.split(/\s+/).length >= 2);
+    toExpand = next.filter(t => wide || t.split(/\s+/).length >= 2);
     console.error(`level ${level}: ${collected.size} candidate terms so far`);
   }
 
@@ -160,7 +207,7 @@ function getToken(page) {
 
 async function run() {
   // 1) generate candidate terms from Apple hints (before touching the browser)
-  console.error(`expanding ${seeds.length} seed(s) via Apple search-hints (${country.toUpperCase()}, depth ${depth}${alpha ? ', alpha' : ''})...`);
+  console.error(`expanding ${seeds.length} seed(s) via Apple search-hints (${country.toUpperCase()}, depth ${effDepth}${effAlpha ? ', alpha' : ''}${wide ? ', WIDE' : ''})...`);
   const terms = await expandTerms();
   if (!terms.length) { console.error('No candidate terms produced from hints.'); process.exit(1); }
   console.error(`validating ${terms.length} terms via aso-ranks...`);
@@ -223,28 +270,60 @@ async function run() {
   }).filter(c => c.popularity >= minPop);
   cands.sort((a, b) => b.gap_score - a.gap_score || b.popularity - a.popularity);
 
+  // 3b) gap-band filter — the inverted-funnel core: keep only the buildable band, not the top of pop.
+  if (openOnly) cands = cands.filter(c => c.open);
+  if (minGap > 0) cands = cands.filter(c => c.gap_score >= minGap);
+
+  // 3c) weak-incumbent check — confirm the top ranker isn't a funded giant (public iTunes ratings).
+  // Only enrich the open band (bounded cost). giant => open gap is illusory; drop from "buildable".
+  if (checkIncumbents) {
+    const toCheck = cands.filter(c => c.open && c.leaders.length);
+    console.error(`checking incumbents on ${toCheck.length} open candidates via iTunes ratings...`);
+    for (const c of toCheck) {
+      const top = await itunesTopApp(c.leaders[0]);
+      c.top_app = top ? top.name : null;
+      c.top_ratings = top ? top.ratings : null;
+      c.giant = top ? top.ratings >= giantRatings : false;
+      c.buildable = c.open && !c.giant;
+      await sleep(120);
+    }
+    // buildable first (open & no giant), then by gap
+    cands.sort((a, b) => (Number(b.buildable || false) - Number(a.buildable || false)) || b.gap_score - a.gap_score);
+  }
+
   // ---- output ----
   console.error(`validated: ${ok.length} ok, ${failed} failed/empty`);
-  console.log(`\n=== ${country.toUpperCase()} demand-first markets — ${cands.length} terms (seed: ${seeds.join(', ')}) ===`);
-  console.log('gap  pop  comp  depth  open  keyword   [top apps]');
+  const buildableCount = cands.filter(c => c.buildable).length;
+  console.log(`\n=== ${country.toUpperCase()} demand-first markets — ${cands.length} terms (seed: ${seeds.join(', ')})` +
+    `${checkIncumbents ? ` — ${buildableCount} BUILDABLE (open, no giant)` : ''} ===`);
+  console.log('gap  pop  comp  depth  flag  keyword   [top apps]' + (checkIncumbents ? '  {top-app ratings}' : ''));
   for (const c of cands.slice(0, 45)) {
+    const flag = checkIncumbents ? (c.buildable ? '★★ ' : (c.open ? ' ✓ ' : '   ')) : (c.open ? ' ✓ ' : '   ');
+    const inc = checkIncumbents && c.top_ratings != null
+      ? `  {${c.giant ? 'GIANT ' : ''}${c.top_ratings.toLocaleString()}★}` : '';
     console.log(
       `${String(c.gap_score).padStart(3)}  ${String(c.popularity).padStart(3)}  ${String(c.competitiveness ?? '-').padStart(4)}  ` +
-      `${String(c.depth ?? '-').padStart(5)}  ${(c.open ? ' ✓ ' : '   ')}  ${c.keyword}   [${c.leaders.slice(0, 2).join(', ')}]`);
+      `${String(c.depth ?? '-').padStart(5)}  ${flag}  ${c.keyword}   [${c.leaders.slice(0, 2).join(', ')}]${inc}`);
   }
 
   if (out) {
-    const cols = ['keyword', 'popularity', 'competitiveness', 'depth', 'gap_score', 'open', 'leaders'];
+    const cols = ['keyword', 'popularity', 'competitiveness', 'depth', 'gap_score', 'open', 'leaders']
+      .concat(checkIncumbents ? ['buildable', 'giant', 'top_app', 'top_ratings'] : []);
     const csv = cols.join(',') + '\n' +
-      cands.map(c => cols.map(k => k === 'keyword' || k === 'leaders'
-        ? JSON.stringify(k === 'leaders' ? c[k].join(' | ') : c[k]) : (c[k] ?? '')).join(',')).join('\n');
+      cands.map(c => cols.map(k => k === 'keyword' || k === 'leaders' || k === 'top_app'
+        ? JSON.stringify(k === 'leaders' ? c[k].join(' | ') : (c[k] ?? '')) : (c[k] ?? '')).join(',')).join('\n');
     writeFileSync(out, csv + '\n');
     console.error('CSV -> ' + out + ` (${cands.length} rows)`);
   }
 
   if (llmPrompt) {
-    const top = cands.slice(0, 60);
-    const table = top.map(c => `${c.keyword} | pop ${c.popularity} | comp ${c.competitiveness ?? '-'} | depth ${c.depth ?? '-'} | ${c.open ? 'OPEN' : 'walled'} | apps: ${c.leaders.slice(0, 3).join(', ')}`).join('\n');
+    // prefer the buildable band when we checked incumbents; else the gap-sorted head
+    const ranked = checkIncumbents ? [...cands].sort((a, b) =>
+      (Number(b.buildable || false) - Number(a.buildable || false)) || b.gap_score - a.gap_score) : cands;
+    const top = ranked.slice(0, 60);
+    const table = top.map(c => `${c.keyword} | pop ${c.popularity} | comp ${c.competitiveness ?? '-'} | depth ${c.depth ?? '-'} | ${c.open ? 'OPEN' : 'walled'}` +
+      (checkIncumbents ? ` | ${c.buildable ? 'BUILDABLE' : (c.giant ? 'GIANT-owned' : 'checked')}${c.top_ratings != null ? ` (top ${c.top_ratings}★)` : ''}` : '') +
+      ` | apps: ${c.leaders.slice(0, 3).join(', ')}`).join('\n');
     const prompt = `# Demand-first market clustering — ${country.toUpperCase()} (seed: ${seeds.join(', ')})
 
 These terms came from Apple's own search-autocomplete (what people TYPE) and were each validated
@@ -252,24 +331,51 @@ with real Apple Search Ads demand. popularity 0–100 = search demand (5 = the f
 searches). competitiveness 0–100 = how walled. depth = apps competing for the term. OPEN = real
 demand with weak defense — the underserved gaps. "apps" = who currently ranks (context for naming).
 
-Unlike app-first discovery, these include high-demand terms NO incumbent serves well.
+Unlike app-first discovery, these include high-demand terms NO incumbent serves well. But demand +
+openness is NOT sufficient: a gap you cannot make content for is a graveyard, and a walled term may
+hide a buildable vertical wedge. Steps 4–6 apply the marketability + verticalize + moat gates that
+demand-scoring alone misses.
 
 ${table}
 
 Your job (DISCOVERY):
 1. CLUSTER into 4–8 candidate MARKETS (a market = a job-to-be-done, not one keyword). Name each.
 2. Rank by OPPORTUNITY = high popularity on the head term AND beatable (OPEN, low competitiveness,
-   shallow depth, no funded giant in "apps"). Flag walled/saturated ones to avoid.
+   shallow depth, no funded giant in "apps"). ${checkIncumbents ? 'BUILDABLE = open AND the top ranker is NOT a funded giant (verified via iTunes ratings) — start here. GIANT-owned = the gap is illusory, skip.' : 'Flag walled/saturated ones to avoid.'}
 3. STRIP noise: brand terms (a brand name being searched ≠ an open market), foreign/junk terms,
    and single mega-brands whose popularity is theirs, not the category's.
-4. Apply the 2026 kill-filters (defensibility, Apple 4.3/medical-claim purge, willingness-to-pay
+4. MARKETABILITY KILL-FILTER (the variable every successful solo builder says decides survival — a
+   demand gap you cannot make content for is a graveyard). For EACH surviving market, answer 3 gates:
+   a. CONTENT VOLUME — is there already a large volume of organic content in this niche (TikTok/IG/
+      YouTube/Reddit)? If yes, seed via existing mid/large creators; if no, YOU must create the format
+      first (much harder, slower). "No content in the niche" is a yellow flag for a solo dev.
+   b. SHOW-DON'T-TELL — can the core value be DEMONSTRATED in one <15s clip (a visible before/after,
+      a magic moment)? Utility/B2B/invisible-output apps fail this. If it can't be shown, it can't go
+      viral organically — mark it distribution-hard and note the alternative channel (SEO/B2B/referral).
+   c. TELL-A-FRIEND — what specific moment makes a user text this app to a friend? If none, there is
+      demand but no growth loop. Name the moment or flag its absence.
+   Output a marketability verdict per market: EASY / HARD (channel: ___) / GRAVEYARD.
+5. VERTICALIZE-PROVEN-MARKETS (do NOT auto-kill walled terms). For each WALLED / GIANT-owned head
+   term, ask the "Freed" question: is there an unserved VERTICAL WEDGE the giant ignores (a specific
+   profession, region, or use-case with proven willingness-to-pay but no bleeding-edge tool)? A proven
+   market entered through an unserved vertical beats an open gap with no WTP. Proven-market + niche
+   wedge = as good as an open gap. Surface any such wedge instead of discarding the walled term.
+6. VALUE-PROP STRESS TEST — for each finalist, write the one-line "why pick this over the incumbent."
+   Then attack it: what competitor copies it in a week? If the edge is copyable in a week it's a
+   feature, not a moat — say so and name the real moat (data feed, network, workflow lock, distribution).
+7. Apply the 2026 kill-filters (defensibility, Apple 4.3/medical-claim purge, willingness-to-pay
    incl. the "free"/race-to-free trap, niche-narrowing).
-5. Output the 2–3 MOST PROMISING markets to take into review_miner.exs (mine the incumbents'
-   1–3★ reviews) for the actual WEDGE. For each: why it survived + the likely wedge.
+8. Output the 2–3 MOST PROMISING markets to take into review_miner.exs (mine the incumbents'
+   1–3★ reviews) for the actual WEDGE. For each: why it survived, marketability verdict + channel,
+   the vertical wedge (if walled), the one-line value prop, and the GROUND-TRUTH gate before building
+   (fake-door landing page + "10 signups/week" + 5 real user conversations — AI mirrors existing public
+   demand, it cannot validate novel demand).
 `;
     writeFileSync(llmPrompt, prompt);
-    console.error('LLM prompt -> ' + llmPrompt);
+    console.error('LLM prompt -> ' + llmPrompt + ' (incl. marketability + verticalize + moat gates)');
   }
+  console.error('\nREMINDER: demand+openness ≠ buildable. Every finalist must pass the marketability gates ' +
+    '(content volume / show-don\'t-tell / tell-a-friend) and the ground-truth gate (fake-door + 10 signups/wk + 5 convos).');
 }
 
 run().catch(e => { console.error('FATAL', e.message); process.exit(1); });
